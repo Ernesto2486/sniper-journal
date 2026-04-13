@@ -5,16 +5,19 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 const priceId = process.env.STRIPE_PRICE_ID;
 
-if (!stripeSecretKey) {
-  throw new Error("Missing STRIPE_SECRET_KEY");
-}
-
-const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: "2025-03-31.basil",
-});
-
 export async function POST() {
   try {
+    if (!stripeSecretKey) {
+      return NextResponse.json(
+        { error: "Missing STRIPE_SECRET_KEY" },
+        { status: 500 },
+      );
+    }
+
+    const stripe = new Stripe(stripeSecretKey, {
+      apiVersion: "2026-03-25.dahlia",
+    });
+
     if (!priceId) {
       return NextResponse.json(
         { error: "Missing STRIPE_PRICE_ID" },
