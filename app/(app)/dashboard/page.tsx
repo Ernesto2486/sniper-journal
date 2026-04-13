@@ -5,13 +5,34 @@ import { EquityCurveChart } from "@/components/equity-curve-chart";
 import { KpiCard, kpiValue } from "@/components/kpi-card";
 import { PerformanceBarChart } from "@/components/performance-bar-chart";
 import { getDashboardData } from "@/lib/data";
+import UpgradeButton from "@/components/upgrade-button";
 
 export default async function DashboardPage() {
-  const { analytics, trades } = await getDashboardData();
+  const { analytics, trades, subscription } = await getDashboardData();
   const { summary } = analytics;
 
   return (
     <div className="space-y-6">
+      {subscription?.is_pro ? (
+  <div className="flex justify-end">
+    <div className="text-green-400 font-semibold">
+      Pro Active 🚀
+    </div>
+  </div>
+) : (
+  <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-xl flex justify-between items-center">
+    <div>
+      <p className="font-semibold">
+        🚀 Free Plan: Limited to 5 trades
+      </p>
+      <p className="text-sm text-gray-400">
+        Upgrade to unlock unlimited trades and full analytics
+      </p>
+    </div>
+    <UpgradeButton />
+  </div>
+)}
+
       <section className="panel grid gap-6 p-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300">Main dashboard</p>
@@ -39,17 +60,47 @@ export default async function DashboardPage() {
           </div>
         </div>
       </section>
+      
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Total Trades" value={kpiValue("number", summary.totalTrades)} />
-        <KpiCard label="Win Rate" value={kpiValue("percent", summary.winRate)} tone={summary.winRate >= 50 ? "profit" : "loss"} />
-        <KpiCard label="Net P/L" value={kpiValue("currency", summary.netPnl)} tone={summary.netPnl >= 0 ? "profit" : "loss"} />
-        <KpiCard label="Average Winner" value={kpiValue("currency", summary.averageWinner)} tone="profit" />
-        <KpiCard label="Average Loser" value={kpiValue("currency", summary.averageLoser)} tone="loss" />
-        <KpiCard label="Profit Factor" value={summary.profitFactor.toFixed(2)} tone={summary.profitFactor >= 1.5 ? "profit" : "neutral"} />
-        <KpiCard label="Expectancy" value={kpiValue("currency", summary.expectancy)} tone={summary.expectancy >= 0 ? "profit" : "loss"} />
-        <KpiCard label="Max Drawdown" value={kpiValue("currency", summary.maxDrawdown)} tone="loss" />
-      </section>
+      {subscription?.is_pro ? (
+  <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <KpiCard label="Total Trades" value={kpiValue("number", summary.totalTrades)} />
+    <KpiCard label="Win Rate" value={kpiValue("percent", summary.winRate)} tone={summary.winRate >= 50 ? "profit" : "loss"} />
+    <KpiCard label="Net P/L" value={kpiValue("currency", summary.netPnl)} tone={summary.netPnl >= 0 ? "profit" : "loss"} />
+    <KpiCard label="Average Winner" value={kpiValue("currency", summary.averageWinner)} tone="profit" />
+    <KpiCard label="Average Loser" value={kpiValue("currency", summary.averageLoser)} tone="loss" />
+    <KpiCard label="Profit Factor" value={kpiValue("currency", summary.profitFactor.toFixed(2))} tone={summary.profitFactor >= 1.5 ? "profit" : "neutral"} />
+    <KpiCard label="Expectancy" value={kpiValue("currency", summary.expectancy)} tone={summary.expectancy >= 0 ? "profit" : "loss"} />
+    <KpiCard label="Max Drawdown" value={kpiValue("currency", summary.maxDrawdown)} tone="loss" />
+  </section>
+) : (
+  <div className="relative">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 blur-sm pointer-events-none">
+      <KpiCard label="Total Trades" value={kpiValue("number", summary.totalTrades)} />
+      <KpiCard label="Win Rate" value={kpiValue("percent", summary.winRate)} tone={summary.winRate >= 50 ? "profit" : "loss"} />
+      <KpiCard label="Net P/L" value={kpiValue("currency", summary.netPnl)} tone={summary.netPnl >= 0 ? "profit" : "loss"} />
+      <KpiCard label="Average Winner" value={kpiValue("currency", summary.averageWinner)} tone="profit" />
+      <KpiCard label="Average Loser" value={kpiValue("currency", summary.averageLoser)} tone="loss" />
+      <KpiCard label="Profit Factor" value={kpiValue("currency", summary.profitFactor.toFixed(2))} tone={summary.profitFactor >= 1.5 ? "profit" : "neutral"} />
+      <KpiCard label="Expectancy" value={kpiValue("currency", summary.expectancy)} tone={summary.expectancy >= 0 ? "profit" : "loss"} />
+      <KpiCard label="Max Drawdown" value={kpiValue("currency", summary.maxDrawdown)} tone="loss" />
+    </div>
+
+    <div className="absolute inset-0 flex items-center justify-center">
+      <div className="rounded-2xl border border-yellow-500/30 bg-slate-950/80 p-6 text-center shadow-xl">
+        <p className="text-lg font-semibold text-white">
+          🔒 Upgrade to Pro to unlock full analytics
+        </p>
+        <p className="mt-2 text-sm text-slate-300">
+          See advanced performance metrics and unlock the full journal experience.
+        </p>
+        <div className="mt-4">
+          <UpgradeButton />
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
       <section className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
         <ChartCard title="Equity curve" description="Cumulative P/L over time based on your recorded result for each trade.">

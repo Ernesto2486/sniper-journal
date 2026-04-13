@@ -74,14 +74,22 @@ export async function requireUser() {
 
 export const getTrades = cache(async (): Promise<TradeRecord[]> => {
   const auth = await getAuthState();
+
   if (auth.isDemo) {
     return sortTrades(demoTrades);
   }
 
   const supabase = await createClient();
+
   if (!supabase || !auth.user) {
     return [];
   }
+
+  const { data: subscription } = await supabase
+    .from("user_subscriptions")
+    .select("is_pro")
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
 
   const { data, error } = await supabase
     .from("trades")
@@ -94,7 +102,15 @@ export const getTrades = cache(async (): Promise<TradeRecord[]> => {
     return [];
   }
 
-  return sortTrades(data.map((row) => mapTrade(row as Record<string, unknown>)));
+  const tradesData = sortTrades(
+    data.map((row) => mapTrade(row as Record<string, unknown>))
+  );
+
+  if (!subscription || !subscription.is_pro) {
+    return tradesData.slice(0, 5);
+  }
+
+  return tradesData;
 });
 
 export async function getTradeById(id: string) {
@@ -106,13 +122,25 @@ export async function getDashboardData(): Promise<{
   trades: TradeRecord[];
   analytics: DashboardAnalytics;
   auth: AuthViewState;
+  subscription: {
+    is_pro: boolean | null;
+    subscription_status: string | null;
+  } | null;
 }> {
   const auth = await requireUser();
   const trades = await getTrades();
+  const supabase = await createClient();
+
+  const { data: subscription } = await supabase
+    .from("user_subscriptions")
+    .select("is_pro, subscription_status")
+    .eq("user_id", auth.user!.id)
+    .maybeSingle();
 
   return {
     trades,
     analytics: buildDashboardAnalytics(trades),
-    auth
+    auth,
+    subscription,
   };
-}
+} 
