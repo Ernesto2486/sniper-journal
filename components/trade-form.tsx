@@ -88,7 +88,17 @@ export function TradeForm({
             <input className="field" type="time" name="time" value={values.time} onChange={(event) => setValues({ ...values, time: event.target.value })} required />
           </FormField>
           <FormField label="Market">
-            <select className="field" name="market" value={values.market} onChange={(event) => setValues({ ...values, market: event.target.value })}>
+            <select
+  className="field"
+  name="market"
+  value={values.market}
+  onChange={(event) =>
+    setValues({
+      ...values,
+      market: event.target.value as typeof values.market,
+    })
+  }
+>
               {MARKETS.map((market) => (
                 <option key={market}>{market}</option>
               ))}
