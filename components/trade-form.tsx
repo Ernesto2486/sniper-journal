@@ -111,7 +111,17 @@ export function TradeForm({
             <input className="field" name="setup" value={values.setup} onChange={(event) => setValues({ ...values, setup: event.target.value })} placeholder="Sniper Pullback" required />
           </FormField>
           <FormField label="Direction">
-            <select className="field" name="direction" value={values.direction} onChange={(event) => setValues({ ...values, direction: event.target.value })}>
+            <select
+  className="field"
+  name="direction"
+  value={values.direction}
+  onChange={(event) =>
+    setValues({
+      ...values,
+      direction: event.target.value as typeof values.direction,
+    })
+  }
+>
               {DIRECTIONS.map((direction) => (
                 <option key={direction}>{direction}</option>
               ))}
