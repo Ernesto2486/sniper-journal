@@ -1,210 +1,131 @@
 import Link from "next/link";
+import { ChartCard } from "@/components/chart-card";
+import { DistributionChart } from "@/components/distribution-chart";
+import { EquityCurveChart } from "@/components/equity-curve-chart";
+import { KpiCard, kpiValue } from "@/components/kpi-card";
+import { PerformanceBarChart } from "@/components/performance-bar-chart";
+import { getDashboardData } from "@/lib/data";
+import UpgradeButton from "@/components/upgrade-button";
 
-export default function HomePage() {
+export default async function DashboardPage() {
+  const { analytics, trades, subscription } = await getDashboardData();
+  
+  const { summary } = analytics;
+
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#0f3b2e,_#020617_35%,_#020617_100%)] text-white">
-      <section className="mx-auto flex min-h-screen max-w-7xl flex-col justify-center px-6 py-16">
-        <div className="grid items-center gap-12 lg:grid-cols-2">
-          <div>
-            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
-              Sniper Journal
-            </p>
+    <div className="space-y-6">
+      
+      {subscription?.is_pro ? (
+  <div className="flex justify-end">
+    <div className="text-green-400 font-semibold">
+      Pro Active 🚀
+    </div>
+  </div>
+) : (
+  <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-xl flex justify-between items-center">
+    <div>
+      <p className="font-semibold">
+        🚀 Free Plan: Limited to 5 trades
+      </p>
+      <p className="text-sm text-gray-400">
+        Upgrade to unlock unlimited trades and full analytics
+      </p>
+    </div>
+    <UpgradeButton />
+  </div>
+)}
 
-            <h1 className="max-w-3xl text-5xl font-bold tracking-tight sm:text-6xl">
-              Trade with data, not emotion.
-            </h1>
-
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-              A trading journal built for disciplined traders who want to track
-              performance, review setups, and grow with real analytics.
-            </p>
-
-            <div className="mt-8 flex flex-wrap gap-4">
-              <Link
-                href="/login"
-                className="rounded-2xl bg-emerald-400 px-6 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300"
-              >
-                Start Free
-              </Link>
-
-              <Link
-                href="/dashboard"
-                className="rounded-2xl border border-white/15 bg-white/5 px-6 py-3 font-semibold text-white transition hover:bg-white/10"
-              >
-                Go to Dashboard
-              </Link>
-            </div>
-
-            <div className="mt-10 flex flex-wrap gap-6 text-sm text-slate-300">
-              <span>✔ Track every trade</span>
-              <span>✔ Review discipline</span>
-              <span>✔ Unlock Pro analytics</span>
-            </div>
+      <section className="panel grid gap-6 p-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300">Main dashboard</p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight">Daily command center</h1>
+          <p className="mt-3 max-w-2xl text-slate-400">
+            Review edge, discipline, and performance in one place. The dashboard combines outcome metrics with the behavioral data that created them.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-3xl border border-white/10 bg-slate-950/50 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Best setup</p>
+            <p className="mt-3 text-2xl font-semibold">{summary.bestSetup}</p>
           </div>
-
-          <div className="rounded-[28px] border border-white/10 bg-slate-950/60 p-6 shadow-2xl backdrop-blur">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                  Performance dashboard
-                </p>
-                <p className="mt-4 text-3xl font-bold text-emerald-400">
-                  +26.5R
-                </p>
-                <p className="mt-2 text-sm text-slate-400">
-                  Measure win rate, expectancy, P/L, and drawdown in one place.
-                </p>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                  Psychology tracking
-                </p>
-                <p className="mt-4 text-3xl font-bold text-white">7.8/10</p>
-                <p className="mt-2 text-sm text-slate-400">
-                  Review discipline, revenge trades, FOMO, and execution habits.
-                </p>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                  Setup review
-                </p>
-                <p className="mt-4 text-2xl font-bold text-white">
-                  Breakout & Pullback
-                </p>
-                <p className="mt-2 text-sm text-slate-400">
-                  Discover which setups actually pay you consistently.
-                </p>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                  Pro unlock
-                </p>
-                <p className="mt-4 text-2xl font-bold text-emerald-400">
-                  Unlimited trades
-                </p>
-                <p className="mt-2 text-sm text-slate-400">
-                  Upgrade to unlock full analytics and advanced journal tools.
-                </p>
-              </div>
-            </div>
+          <div className="rounded-3xl border border-white/10 bg-slate-950/50 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Plan follow rate</p>
+            <p className="mt-3 text-2xl font-semibold">{summary.planFollowRate.toFixed(1)}%</p>
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-slate-950/50 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Avg discipline</p>
+            <p className="mt-3 text-2xl font-semibold">{summary.avgDiscipline.toFixed(1)}/10</p>
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-slate-950/50 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Trades logged</p>
+            <p className="mt-3 text-2xl font-semibold">{trades.length}</p>
           </div>
         </div>
-
-        <section className="mt-24 grid gap-6 lg:grid-cols-3">
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-lg font-semibold">Track every trade</p>
-            <p className="mt-3 text-sm leading-7 text-slate-300">
-              Log entries, exits, setup type, emotions, discipline score, and
-              notes in one professional journal.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-lg font-semibold">See what works</p>
-            <p className="mt-3 text-sm leading-7 text-slate-300">
-              Use dashboards and charts to understand your edge, not just your
-              feelings after a trade.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-lg font-semibold">Upgrade when ready</p>
-            <p className="mt-3 text-sm leading-7 text-slate-300">
-              Start free, then unlock unlimited trades and premium analytics
-              with Pro.
-            </p>
-          </div>
-        </section>
-
-        <section className="mt-24">
-          <div className="mb-8">
-            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
-              Pricing
-            </p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight">
-              Simple plans for serious traders
-            </h2>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-8">
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">
-                Free
-              </p>
-              <p className="mt-4 text-4xl font-bold">$0</p>
-              <p className="mt-2 text-slate-300">Start learning your numbers.</p>
-
-              <div className="mt-6 space-y-3 text-sm text-slate-300">
-                <p>• Up to 5 visible trades</p>
-                <p>• Limited analytics access</p>
-                <p>• Trading journal basics</p>
-              </div>
-
-              <Link
-                href="/login"
-                className="mt-8 inline-flex rounded-2xl border border-white/15 bg-white/5 px-5 py-3 font-semibold transition hover:bg-white/10"
-              >
-                Start Free
-              </Link>
-            </div>
-
-            <div className="rounded-3xl border border-emerald-400/30 bg-emerald-400/10 p-8 shadow-xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-300">
-                Pro
-              </p>
-              <p className="mt-4 text-4xl font-bold">$19<span className="text-lg font-medium text-slate-300">/month</span></p>
-              <p className="mt-2 text-slate-200">
-                Built for traders who want full visibility and growth.
-              </p>
-
-              <div className="mt-6 space-y-3 text-sm text-slate-200">
-                <p>• Unlimited trades</p>
-                <p>• Full analytics dashboard</p>
-                <p>• Performance and discipline insights</p>
-                <p>• Premium trading journal tools</p>
-              </div>
-
-              <Link
-                href="/login"
-                className="mt-8 inline-flex rounded-2xl bg-emerald-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300"
-              >
-                Upgrade to Pro
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-24 rounded-[28px] border border-white/10 bg-white/5 p-8 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-300">
-            Start now
-          </p>
-          <h2 className="mt-3 text-3xl font-bold">
-            Build discipline. Track performance. Trade smarter.
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-slate-300">
-            Sniper Journal helps you stop guessing and start improving with
-            real data.
-          </p>
-
-          <div className="mt-8 flex justify-center gap-4">
-            <Link
-              href="/login"
-              className="rounded-2xl bg-emerald-400 px-6 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300"
-            >
-              Start Free
-            </Link>
-            <Link
-              href="/dashboard"
-              className="rounded-2xl border border-white/15 bg-white/5 px-6 py-3 font-semibold text-white transition hover:bg-white/10"
-            >
-              Open Dashboard
-            </Link>
-          </div>
-        </section>
       </section>
-    </main>
+      
+      {subscription?.is_pro ? (
+  <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <KpiCard label="Total Trades" value={kpiValue("number", summary.totalTrades)} />
+    <KpiCard label="Win Rate" value={kpiValue("percent", summary.winRate)} tone={summary.winRate >= 50 ? "profit" : "loss"} />
+    <KpiCard label="Net P/L" value={kpiValue("currency", summary.netPnl)} tone={summary.netPnl >= 0 ? "profit" : "loss"} />
+    <KpiCard label="Average Winner" value={kpiValue("currency", summary.averageWinner)} tone="profit" />
+    <KpiCard label="Average Loser" value={kpiValue("currency", summary.averageLoser)} tone="loss" />
+    <KpiCard label="Profit Factor" value={kpiValue("number", summary.profitFactor)} tone={summary.profitFactor >= 1.5 ? "profit" : "neutral"} />
+    <KpiCard label="Expectancy" value={kpiValue("currency", summary.expectancy)} tone={summary.expectancy >= 0 ? "profit" : "loss"} />
+    <KpiCard label="Max Drawdown" value={kpiValue("currency", summary.maxDrawdown)} tone="loss" />
+  </section>
+) : (
+  <div className="relative">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 blur-sm pointer-events-none">
+      <KpiCard label="Total Trades" value={kpiValue("number", summary.totalTrades)} />
+      <KpiCard label="Win Rate" value={kpiValue("percent", summary.winRate)} tone={summary.winRate >= 50 ? "profit" : "loss"} />
+      <KpiCard label="Net P/L" value={kpiValue("currency", summary.netPnl)} tone={summary.netPnl >= 0 ? "profit" : "loss"} />
+      <KpiCard label="Average Winner" value={kpiValue("currency", summary.averageWinner)} tone="profit" />
+      <KpiCard label="Average Loser" value={kpiValue("currency", summary.averageLoser)} tone="loss" />
+      <KpiCard label="Profit Factor" value={kpiValue("number", summary.profitFactor)} tone={summary.profitFactor >= 1.5 ? "profit" : "neutral"} />
+      <KpiCard label="Expectancy" value={kpiValue("currency", summary.expectancy)} tone={summary.expectancy >= 0 ? "profit" : "loss"} />
+      <KpiCard label="Max Drawdown" value={kpiValue("currency", summary.maxDrawdown)} tone="loss" />
+    </div>
+
+    <div className="absolute inset-0 flex items-center justify-center">
+      <div className="rounded-2xl border border-yellow-500/30 bg-slate-950/80 p-6 text-center shadow-xl">
+        <p className="text-lg font-semibold text-white">
+          🔒 Upgrade to Pro to unlock full analytics
+        </p>
+        <p className="mt-2 text-sm text-slate-300">
+          See advanced performance metrics and unlock the full journal experience.
+        </p>
+        <div className="mt-4">
+          <UpgradeButton />
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+      <section className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+        <ChartCard title="Equity curve" description="Cumulative P/L over time based on your recorded result for each trade.">
+          <EquityCurveChart data={analytics.equityCurve} />
+        </ChartCard>
+        <ChartCard title="Win vs loss distribution" description="Trade count broken into winners and losers with gross amount context.">
+          <DistributionChart data={analytics.winLossDistribution} />
+        </ChartCard>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <ChartCard title="Performance by setup" description="See which setups are actually paying you, not just the ones you like taking.">
+          <PerformanceBarChart data={analytics.performanceBySetup.slice(0, 6)} color="#38bdf8" />
+        </ChartCard>
+        <ChartCard title="Performance by day of week" description="Spot which sessions and weekdays deserve more or less risk.">
+          <PerformanceBarChart data={analytics.performanceByDayOfWeek} color="#f59e0b" />
+        </ChartCard>
+      </section>
+
+      <div className="flex justify-end">
+        <Link href="/trades/new" className="rounded-full bg-emerald-400 px-6 py-3 text-sm font-semibold text-slate-950">
+          Log new trade
+        </Link>
+      </div>
+    </div>
   );
 }
