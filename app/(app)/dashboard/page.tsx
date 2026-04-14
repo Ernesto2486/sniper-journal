@@ -9,10 +9,12 @@ import UpgradeButton from "@/components/upgrade-button";
 
 export default async function DashboardPage() {
   const { analytics, trades, subscription } = await getDashboardData();
+  
   const { summary } = analytics;
 
   return (
     <div className="space-y-6">
+      
       {subscription?.is_pro ? (
   <div className="flex justify-end">
     <div className="text-green-400 font-semibold">
@@ -61,7 +63,6 @@ export default async function DashboardPage() {
         </div>
       </section>
       
-
       {subscription?.is_pro ? (
   <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
     <KpiCard label="Total Trades" value={kpiValue("number", summary.totalTrades)} />
@@ -69,7 +70,7 @@ export default async function DashboardPage() {
     <KpiCard label="Net P/L" value={kpiValue("currency", summary.netPnl)} tone={summary.netPnl >= 0 ? "profit" : "loss"} />
     <KpiCard label="Average Winner" value={kpiValue("currency", summary.averageWinner)} tone="profit" />
     <KpiCard label="Average Loser" value={kpiValue("currency", summary.averageLoser)} tone="loss" />
-    <KpiCard label="Profit Factor" value={kpiValue("currency", summary.profitFactor.toFixed(2))} tone={summary.profitFactor >= 1.5 ? "profit" : "neutral"} />
+    <KpiCard label="Profit Factor" value={kpiValue("number", summary.profitFactor)} tone={summary.profitFactor >= 1.5 ? "profit" : "neutral"} />
     <KpiCard label="Expectancy" value={kpiValue("currency", summary.expectancy)} tone={summary.expectancy >= 0 ? "profit" : "loss"} />
     <KpiCard label="Max Drawdown" value={kpiValue("currency", summary.maxDrawdown)} tone="loss" />
   </section>
@@ -81,7 +82,7 @@ export default async function DashboardPage() {
       <KpiCard label="Net P/L" value={kpiValue("currency", summary.netPnl)} tone={summary.netPnl >= 0 ? "profit" : "loss"} />
       <KpiCard label="Average Winner" value={kpiValue("currency", summary.averageWinner)} tone="profit" />
       <KpiCard label="Average Loser" value={kpiValue("currency", summary.averageLoser)} tone="loss" />
-      <KpiCard label="Profit Factor" value={kpiValue("currency", summary.profitFactor.toFixed(2))} tone={summary.profitFactor >= 1.5 ? "profit" : "neutral"} />
+      <KpiCard label="Profit Factor" value={kpiValue("number", summary.profitFactor)} tone={summary.profitFactor >= 1.5 ? "profit" : "neutral"} />
       <KpiCard label="Expectancy" value={kpiValue("currency", summary.expectancy)} tone={summary.expectancy >= 0 ? "profit" : "loss"} />
       <KpiCard label="Max Drawdown" value={kpiValue("currency", summary.maxDrawdown)} tone="loss" />
     </div>

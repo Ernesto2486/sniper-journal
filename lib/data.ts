@@ -88,7 +88,7 @@ export const getTrades = cache(async (): Promise<TradeRecord[]> => {
   const { data: subscription } = await supabase
     .from("user_subscriptions")
     .select("is_pro")
-    .eq("user_id", auth.user.id)
+    .eq("email", auth.user.email)
     .maybeSingle();
 
   const { data, error } = await supabase
@@ -131,10 +131,19 @@ export async function getDashboardData(): Promise<{
   const trades = await getTrades();
   const supabase = await createClient();
 
+  if (!supabase || !auth.user) {
+    return {
+      trades,
+      analytics: buildDashboardAnalytics(trades),
+      auth,
+      subscription: null,
+    };
+  }
+
   const { data: subscription } = await supabase
     .from("user_subscriptions")
     .select("is_pro, subscription_status")
-    .eq("user_id", auth.user!.id)
+    .eq("user_id", auth.user.id)
     .maybeSingle();
 
   return {
@@ -143,4 +152,4 @@ export async function getDashboardData(): Promise<{
     auth,
     subscription,
   };
-} 
+}
