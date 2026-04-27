@@ -38,6 +38,38 @@ export interface TradeRecord {
   createdAt: string;
 }
 
+
+export type JournalChecklistKey =
+  | "biasClear"
+  | "inZone"
+  | "liquiditySweep"
+  | "weakPullback"
+  | "volumeConfirms"
+  | "aPlusSetup"
+  | "rrMinimum";
+
+export type DailyJournalAttachment = {
+  id: string;
+  type: "tradingview" | "image";
+  label: string;
+  url: string;
+};
+
+export interface DailyJournalRecord {
+  id: string;
+  userId: string;
+  journalDate: string;
+  mood: string;
+  sleepHours: string;
+  marketConditions: "Trending" | "Range" | "Volatile" | "News Day";
+  notes: string;
+  checklist: Record<JournalChecklistKey, boolean>;
+  checklistScore: number;
+  tradeStatus: "NO TRADE" | "A+ TRADE READY";
+  attachments: DailyJournalAttachment[];
+  todaysFocus: string[];
+  playbooks: string[];
+}
 export interface DashboardSummary {
   totalTrades: number;
   winRate: number;
@@ -111,3 +143,4 @@ export interface AuthViewState {
   } | null;
   isDemo: boolean;
 }
+
