@@ -95,11 +95,27 @@ function normalizeMarket(value: string): Market {
   return MARKETS.has(value) ? value as Market : "Stocks";
 }
 
-function normalizeDirection(value: string) {
+function normalizeDirection(value: string, resultUsd: number, entryPrice: number, exitPrice: number) {
   const lower = value.toLowerCase();
   if (["short", "sell", "sold", "s"].includes(lower)) return "Short";
   if (["long", "buy", "bought", "l"].includes(lower)) return "Long";
-  return DIRECTIONS.has(value) ? value : "Long";
+  if (DIRECTIONS.has(value)) return value;
+
+  if (Number.isFinite(resultUsd) && Number.isFinite(entryPrice) && Number.isFinite(exitPrice) && entryPrice !== exitPrice) {
+    const longPnlMatches = Math.sign(exitPrice - entryPrice) === Math.sign(resultUsd);
+    return longPnlMatches ? "Long" : "Short";
+  }
+
+  return "Long";
+}
+
+function optionalNumber(value: string, fallback: number) {
+  if (!value.trim()) {
+    return fallback;
+  }
+
+  const parsed = numberFrom(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function duplicateKey(values: {
@@ -205,19 +221,19 @@ export async function importTradesAction(request: ImportRequest) {
     const date = normalizeDate(cell(row, request.mapping.date));
     const time = normalizeTime(cell(row, request.mapping.time));
     const instrument = cell(row, request.mapping.instrument).toUpperCase();
-    const direction = normalizeDirection(cell(row, request.mapping.direction));
     const market = normalizeMarket(cell(row, request.mapping.market));
     const entryPrice = numberFrom(cell(row, request.mapping.entryPrice));
     const exitPrice = numberFrom(cell(row, request.mapping.exitPrice));
-    const stopLoss = numberFrom(cell(row, request.mapping.stopLoss));
-    const takeProfit = numberFrom(cell(row, request.mapping.takeProfit));
     const size = numberFrom(cell(row, request.mapping.size));
-    const fees = numberFrom(cell(row, request.mapping.fees)) || 0;
+    const fees = optionalNumber(cell(row, request.mapping.fees), 0);
     const resultUsd = numberFrom(cell(row, request.mapping.resultUsd));
+    const direction = normalizeDirection(cell(row, request.mapping.direction), resultUsd, entryPrice, exitPrice);
+    const stopLoss = optionalNumber(cell(row, request.mapping.stopLoss), entryPrice);
+    const takeProfit = optionalNumber(cell(row, request.mapping.takeProfit), exitPrice);
     const setup = cell(row, request.mapping.setup) || "Imported";
     const notes = cell(row, request.mapping.notes);
 
-    if (!date || !instrument || !Number.isFinite(entryPrice) || !Number.isFinite(exitPrice) || !Number.isFinite(stopLoss) || !Number.isFinite(takeProfit) || !Number.isFinite(size) || !Number.isFinite(resultUsd)) {
+    if (!date || !time || !instrument || !Number.isFinite(entryPrice) || !Number.isFinite(exitPrice) || !Number.isFinite(size) || !Number.isFinite(resultUsd)) {
       failures.push({ rowNumber, reason: "Missing or invalid required trade fields." });
       continue;
     }
@@ -315,3 +331,4 @@ export async function importTradesAction(request: ImportRequest) {
     failures
   };
 }
+

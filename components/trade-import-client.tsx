@@ -28,14 +28,14 @@ type ImportResult = Awaited<ReturnType<typeof importTradesAction>>;
 
 const fields: Array<{ key: ImportColumnKey; label: string; required?: boolean; aliases: string[] }> = [
   { key: "date", label: "Date", required: true, aliases: ["date", "trade date", "opened", "entry date"] },
-  { key: "time", label: "Time", aliases: ["time", "entry time", "opened time"] },
+  { key: "time", label: "Time", required: true, aliases: ["time", "entry time", "opened time"] },
   { key: "market", label: "Market", required: true, aliases: ["market", "asset class", "type"] },
   { key: "instrument", label: "Instrument / Ticker", required: true, aliases: ["instrument", "ticker", "symbol", "contract"] },
-  { key: "direction", label: "Direction", required: true, aliases: ["direction", "side", "buy/sell", "long/short"] },
+  { key: "direction", label: "Direction", aliases: ["direction", "side", "buy/sell", "long/short", "buy sell"] },
   { key: "entryPrice", label: "Entry price", required: true, aliases: ["entry", "entry price", "open price", "avg entry"] },
   { key: "exitPrice", label: "Exit price", required: true, aliases: ["exit", "exit price", "close price", "avg exit"] },
-  { key: "stopLoss", label: "Stop loss", required: true, aliases: ["stop", "stop loss", "sl"] },
-  { key: "takeProfit", label: "Take profit", required: true, aliases: ["target", "take profit", "tp"] },
+  { key: "stopLoss", label: "Stop loss", aliases: ["stop", "stop loss", "sl"] },
+  { key: "takeProfit", label: "Take profit", aliases: ["target", "take profit", "tp"] },
   { key: "size", label: "Size / Contracts", required: true, aliases: ["size", "contracts", "qty", "quantity", "shares"] },
   { key: "fees", label: "Fees", aliases: ["fees", "commission", "commissions"] },
   { key: "resultUsd", label: "P/L", required: true, aliases: ["p/l", "pl", "pnl", "profit", "profit loss", "realized p/l", "net pnl"] },
@@ -303,3 +303,4 @@ function ResultCard({ label, value, tone = "neutral" }: { label: string; value: 
     </div>
   );
 }
+
