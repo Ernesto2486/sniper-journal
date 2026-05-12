@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, BookOpenText, CalendarDays, LayoutDashboard, LogOut, PlusCircle, Table2, WalletCards } from "lucide-react";
+import { BarChart3, BookOpenText, CalendarDays, LayoutDashboard, LogOut, PlusCircle, Table2, UploadCloud, WalletCards } from "lucide-react";
 import { signOutAction } from "@/app/(app)/trades/actions";
 
 const navItems = [
@@ -7,6 +7,7 @@ const navItems = [
   { href: "/accounts", label: "Accounts", icon: WalletCards },
   { href: "/trades", label: "Trade History", icon: Table2 },
   { href: "/trades/new", label: "New Trade", icon: PlusCircle },
+  { href: "/import", label: "Import Trades", icon: UploadCloud },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/journal", label: "Journal", icon: BookOpenText }
@@ -63,6 +64,7 @@ export function AppSidebar({
     </aside>
   );
 }
+
 
 
 
