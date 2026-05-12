@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { BarChart3, BookOpenText, CalendarDays, LayoutDashboard, LogOut, PlusCircle, Table2 } from "lucide-react";
+import { BarChart3, BookOpenText, CalendarDays, LayoutDashboard, LogOut, PlusCircle, Table2, WalletCards } from "lucide-react";
 import { signOutAction } from "@/app/(app)/trades/actions";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/accounts", label: "Accounts", icon: WalletCards },
   { href: "/trades", label: "Trade History", icon: Table2 },
   { href: "/trades/new", label: "New Trade", icon: PlusCircle },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
@@ -62,5 +63,6 @@ export function AppSidebar({
     </aside>
   );
 }
+
 
 

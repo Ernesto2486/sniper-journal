@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { DIRECTIONS, MARKETS, type TradeRecord } from "@/lib/types";
+import { DIRECTIONS, MARKETS, type TradeRecord, type TradingAccount } from "@/lib/types";
 
 type TradeAction = (formData: FormData) => void | Promise<void>;
 
-function initialFromTrade(trade?: TradeRecord | null) {
+function initialFromTrade(trade?: TradeRecord | null, initialDate?: string, initialAccountId?: string, defaultAccountId?: string) {
   return {
-    date: trade?.date ?? new Date().toISOString().slice(0, 10),
+    date: trade?.date ?? initialDate ?? new Date().toISOString().slice(0, 10),
     time: trade?.time ?? "09:30",
+    tradingAccountId: trade?.tradingAccountId ?? initialAccountId ?? defaultAccountId ?? "",
     market: trade?.market ?? "Stocks",
     instrument: trade?.instrument ?? "",
     setup: trade?.setup ?? "",
@@ -46,13 +47,21 @@ function numberFromInput(value: string) {
 export function TradeForm({
   trade,
   action,
-  isDemo
+  isDemo,
+  initialDate,
+  initialAccountId,
+  defaultAccountId,
+  accounts
 }: {
   trade?: TradeRecord | null;
   action: TradeAction;
   isDemo: boolean;
+  initialDate?: string;
+  initialAccountId?: string;
+  defaultAccountId?: string;
+  accounts: TradingAccount[];
 }) {
-  const [values, setValues] = useState(initialFromTrade(trade));
+  const [values, setValues] = useState(initialFromTrade(trade, initialDate, initialAccountId, defaultAccountId));
 
   const entry = numberFromInput(values.entryPrice);
   const exit = numberFromInput(values.exitPrice);
@@ -86,6 +95,14 @@ export function TradeForm({
           </FormField>
           <FormField label="Time">
             <input className="field" type="time" name="time" value={values.time} onChange={(event) => setValues({ ...values, time: event.target.value })} required />
+          </FormField>
+          <FormField label="Account">
+            <select className="field" name="trading_account_id" value={values.tradingAccountId} onChange={(event) => setValues({ ...values, tradingAccountId: event.target.value })}>
+              <option value="">No account</option>
+              {accounts.filter((account) => account.isActive || account.id === trade?.tradingAccountId).map((account) => (
+                <option key={account.id} value={account.id}>{account.accountName}{account.isActive ? "" : " (Archived)"}</option>
+              ))}
+            </select>
           </FormField>
           <FormField label="Market">
             <select
@@ -244,3 +261,9 @@ function BooleanField({
     </label>
   );
 }
+
+
+
+
+
+

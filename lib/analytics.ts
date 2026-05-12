@@ -7,6 +7,7 @@ import {
   startOfWeek
 } from "date-fns";
 import type {
+  AccountPerformancePoint,
   CalendarDayPoint,
   DashboardAnalytics,
   DashboardSummary,
@@ -32,6 +33,7 @@ export function applyTradeFilters(trades: TradeRecord[], filters: TradeFilters) 
     if (filters.to && trade.date > filters.to) return false;
     if (filters.market && filters.market !== "all" && trade.market !== filters.market) return false;
     if (filters.setup && filters.setup !== "all" && trade.setup !== filters.setup) return false;
+    if (filters.account && filters.account !== "all" && trade.tradingAccountId !== filters.account) return false;
     if (filters.result === "win" && trade.resultUsd <= 0) return false;
     if (filters.result === "loss" && trade.resultUsd >= 0) return false;
     return true;
@@ -40,6 +42,17 @@ export function applyTradeFilters(trades: TradeRecord[], filters: TradeFilters) 
 
 function average(values: number[]) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+function tradeRr(trade: TradeRecord) {
+  const riskPerUnit = Math.abs(trade.entryPrice - trade.stopLoss);
+  const rewardPerUnit = Math.abs(trade.takeProfit - trade.entryPrice);
+
+  if (!riskPerUnit || !Number.isFinite(riskPerUnit)) {
+    return 0;
+  }
+
+  return rewardPerUnit / riskPerUnit;
 }
 
 function groupedCalendarPoints(trades: TradeRecord[]): CalendarDayPoint[] {
@@ -55,7 +68,37 @@ function groupedCalendarPoints(trades: TradeRecord[]): CalendarDayPoint[] {
   return [...map.values()].sort((left, right) => left.date.localeCompare(right.date));
 }
 
-function buildSummary(trades: TradeRecord[]): DashboardSummary {
+function buildAccountPerformance(trades: TradeRecord[]): AccountPerformancePoint[] {
+  const grouped = new Map<string, { accountId: string | null; label: string; pnl: number; wins: number; trades: TradeRecord[] }>();
+
+  for (const trade of trades) {
+    const key = trade.tradingAccountId ?? "unassigned";
+    const current = grouped.get(key) ?? {
+      accountId: trade.tradingAccountId,
+      label: trade.tradingAccountName || "Unassigned",
+      pnl: 0,
+      wins: 0,
+      trades: []
+    };
+    current.pnl += trade.resultUsd;
+    current.wins += trade.resultUsd > 0 ? 1 : 0;
+    current.trades.push(trade);
+    grouped.set(key, current);
+  }
+
+  return [...grouped.values()]
+    .map((item) => ({
+      accountId: item.accountId,
+      label: item.label,
+      pnl: item.pnl,
+      trades: item.trades.length,
+      winRate: item.trades.length ? (item.wins / item.trades.length) * 100 : 0,
+      averageRr: average(item.trades.map((trade) => tradeRr(trade)))
+    }))
+    .sort((left, right) => right.pnl - left.pnl);
+}
+
+function buildSummary(trades: TradeRecord[], accountPerformance: AccountPerformancePoint[]): DashboardSummary {
   const wins = trades.filter((trade) => trade.resultUsd > 0);
   const losses = trades.filter((trade) => trade.resultUsd < 0);
   const grossProfit = wins.reduce((sum, trade) => sum + trade.resultUsd, 0);
@@ -85,6 +128,7 @@ function buildSummary(trades: TradeRecord[]): DashboardSummary {
   }
 
   const rankedSetups = [...setupPerformance.entries()].sort((left, right) => right[1].total - left[1].total);
+  const rankedAccounts = [...accountPerformance].sort((left, right) => right.pnl - left.pnl);
 
   return {
     totalTrades: trades.length,
@@ -95,8 +139,11 @@ function buildSummary(trades: TradeRecord[]): DashboardSummary {
     profitFactor: grossLoss === 0 ? (grossProfit > 0 ? grossProfit : 0) : grossProfit / grossLoss,
     expectancy,
     maxDrawdown,
+    averageRr: average(trades.map((trade) => tradeRr(trade))),
     bestSetup: rankedSetups[0]?.[0] ?? "No data",
     worstSetup: rankedSetups.at(-1)?.[0] ?? "No data",
+    bestAccount: rankedAccounts[0]?.label ?? "No data",
+    worstAccount: rankedAccounts.at(-1)?.label ?? "No data",
     avgDiscipline: average(trades.map((trade) => trade.disciplineScore)),
     planFollowRate: trades.length ? (trades.filter((trade) => trade.followedPlan).length / trades.length) * 100 : 0,
     stopRespectRate: trades.length ? (trades.filter((trade) => trade.respectStopLoss).length / trades.length) * 100 : 0
@@ -168,6 +215,7 @@ function buildWeeklyPerformance(trades: TradeRecord[]): PeriodPerformancePoint[]
 
 export function buildDashboardAnalytics(trades: TradeRecord[]): DashboardAnalytics {
   const orderedTrades = sortTrades(trades);
+  const accountPerformance = buildAccountPerformance(orderedTrades);
   let running = 0;
 
   const equityCurve = orderedTrades.map((trade) => {
@@ -183,7 +231,7 @@ export function buildDashboardAnalytics(trades: TradeRecord[]): DashboardAnalyti
   const losses = orderedTrades.filter((trade) => trade.resultUsd < 0);
 
   return {
-    summary: buildSummary(orderedTrades),
+    summary: buildSummary(orderedTrades, accountPerformance),
     equityCurve,
     winLossDistribution: [
       { name: "Wins", value: wins.length, amount: wins.reduce((sum, trade) => sum + trade.resultUsd, 0) },
@@ -191,6 +239,7 @@ export function buildDashboardAnalytics(trades: TradeRecord[]): DashboardAnalyti
     ],
     performanceBySetup: buildPerformanceBySetup(orderedTrades),
     performanceByDayOfWeek: buildPerformanceByDayOfWeek(orderedTrades),
+    performanceByAccount: accountPerformance,
     dailyPerformance: buildDailyPerformance(orderedTrades),
     weeklyPerformance: buildWeeklyPerformance(orderedTrades),
     calendarPerformance: groupedCalendarPoints(orderedTrades)

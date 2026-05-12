@@ -23,7 +23,7 @@ export function TradeTable({ trades }: { trades: TradeRecord[] }) {
                 <td className="px-4 py-4">
                   <p className="font-semibold text-slate-100">{trade.instrument}</p>
                   <p className="mt-1 text-slate-400">
-                    {trade.date} at {trade.time} | {trade.market} | {trade.direction}
+                    {trade.date} at {trade.time} | {trade.market} | {trade.direction} | {trade.tradingAccountName}
                   </p>
                 </td>
                 <td className="px-4 py-4">
@@ -58,3 +58,4 @@ export function TradeTable({ trades }: { trades: TradeRecord[] }) {
     </div>
   );
 }
+

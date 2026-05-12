@@ -1,15 +1,19 @@
 import Link from "next/link";
 import { createTradeAction } from "@/app/(app)/trades/actions";
 import { TradeForm } from "@/components/trade-form";
-import { getAuthState } from "@/lib/data";
+import { getAuthState, getDefaultTradingAccount, getTradingAccounts } from "@/lib/data";
 
 export default async function NewTradePage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; date?: string; account?: string }>;
 }) {
   const params = await searchParams;
-  const auth = await getAuthState();
+  const [auth, accounts, defaultAccount] = await Promise.all([
+    getAuthState(),
+    getTradingAccounts(),
+    getDefaultTradingAccount()
+  ]);
 
   return (
     <div className="space-y-6">
@@ -23,7 +27,14 @@ export default async function NewTradePage({
         </Link>
       </div>
       {params.error ? <div className="rounded-2xl border border-rose-300/25 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">{params.error}</div> : null}
-      <TradeForm action={createTradeAction} isDemo={auth.isDemo} />
+      <TradeForm
+        action={createTradeAction}
+        isDemo={auth.isDemo}
+        initialDate={params.date}
+        initialAccountId={params.account}
+        defaultAccountId={defaultAccount?.id}
+        accounts={accounts}
+      />
     </div>
   );
 }

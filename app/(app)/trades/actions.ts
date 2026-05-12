@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { getAuthState } from "@/lib/data";
+import { getAuthState, getDefaultTradingAccount } from "@/lib/data";
 import { toBoolean, toNumber, toOptionalString, toStringValue } from "@/lib/utils";
 
 function buildTradePayload(formData: FormData) {
   return {
+    trading_account_id: toOptionalString(formData.get("trading_account_id")),
     date: toStringValue(formData.get("date")),
     time: toStringValue(formData.get("time")),
     market: toStringValue(formData.get("market")),
@@ -48,6 +49,8 @@ function refreshScreens() {
   revalidatePath("/trades");
   revalidatePath("/analytics");
   revalidatePath("/calendar");
+  revalidatePath("/journal");
+  revalidatePath("/accounts");
 }
 
 export async function createTradeAction(formData: FormData) {
@@ -62,9 +65,11 @@ export async function createTradeAction(formData: FormData) {
   }
 
   const payload = buildTradePayload(formData);
+  const defaultAccount = payload.trading_account_id ? null : await getDefaultTradingAccount();
   const { error } = await supabase.from("trades").insert({
     user_id: auth.user.id,
-    ...payload
+    ...payload,
+    trading_account_id: payload.trading_account_id ?? defaultAccount?.id ?? null
   });
 
   if (error) {

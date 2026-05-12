@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { addMonths, format, subMonths } from "date-fns";
+import { AccountFilter } from "@/components/account-filter";
 import { CalendarGrid } from "@/components/calendar-grid";
-import { buildMonthCalendar } from "@/lib/analytics";
+import { applyTradeFilters, buildDashboardAnalytics, buildMonthCalendar } from "@/lib/analytics";
 import { getDashboardData } from "@/lib/data";
 import { formatCurrency } from "@/lib/utils";
 
@@ -10,14 +11,18 @@ const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export default async function CalendarPage({
   searchParams
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; account?: string }>;
 }) {
-  const { analytics } = await getDashboardData();
   const params = await searchParams;
+  const selectedAccount = params.account ?? "all";
+  const { accounts, trades } = await getDashboardData();
+  const filteredTrades = applyTradeFilters(trades, { account: selectedAccount });
+  const analytics = buildDashboardAnalytics(filteredTrades);
   const month = params.month ? new Date(`${params.month}-01T00:00:00`) : new Date();
   const days = buildMonthCalendar(month, analytics.calendarPerformance);
   const previous = format(subMonths(month, 1), "yyyy-MM");
   const next = format(addMonths(month, 1), "yyyy-MM");
+  const accountQuery = selectedAccount !== "all" ? `&account=${selectedAccount}` : "";
 
   return (
     <div className="space-y-6">
@@ -26,11 +31,12 @@ export default async function CalendarPage({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300">Calendar view</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight">{format(month, "MMMM yyyy")}</h1>
-            <p className="mt-3 text-slate-400">Each day is color-coded by realized P/L so you can review rhythm and streaks visually.</p>
+            <p className="mt-3 text-slate-400">Each day is color-coded by realized P/L for the selected account context.</p>
           </div>
-          <div className="flex gap-3">
-            <Link href={`/calendar?month=${previous}`} className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white">Previous</Link>
-            <Link href={`/calendar?month=${next}`} className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white">Next</Link>
+          <div className="flex flex-wrap items-end gap-3">
+            <AccountFilter accounts={accounts} selectedAccount={selectedAccount} hidden={{ month: format(month, "yyyy-MM") }} compact />
+            <Link href={`/calendar?month=${previous}${accountQuery}`} className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white">Previous</Link>
+            <Link href={`/calendar?month=${next}${accountQuery}`} className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white">Next</Link>
           </div>
         </div>
       </section>

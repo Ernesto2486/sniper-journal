@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Download } from "lucide-react";
 import { applyTradeFilters, buildDashboardAnalytics } from "@/lib/analytics";
-import { getTrades } from "@/lib/data";
+import { getDashboardData } from "@/lib/data";
 import { TradeTable } from "@/components/trade-table";
 
 export default async function TradesPage({
@@ -12,13 +12,14 @@ export default async function TradesPage({
     to?: string;
     market?: string;
     setup?: string;
+    account?: string;
     result?: "win" | "loss" | "all";
     error?: string;
     message?: string;
   }>;
 }) {
   const params = await searchParams;
-  const trades = await getTrades();
+  const { trades, accounts } = await getDashboardData();
   const filtered = applyTradeFilters(trades, params);
   const analytics = buildDashboardAnalytics(filtered);
   const setups = [...new Set(trades.map((trade) => trade.setup))];
@@ -31,7 +32,7 @@ export default async function TradesPage({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300">Trade history</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight">Every trade, fully reviewable.</h1>
-            <p className="mt-3 text-slate-400">Filter by date, market, setup, or outcome, then jump straight into edit mode.</p>
+            <p className="mt-3 text-slate-400">Filter by account, date, market, setup, or outcome, then jump straight into edit mode.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link href="/trades/export" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white">
@@ -47,9 +48,16 @@ export default async function TradesPage({
         {params.error ? <div className="mt-5 rounded-2xl border border-rose-300/25 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">{params.error}</div> : null}
         {params.message ? <div className="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">{params.message}</div> : null}
 
-        <form className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <form className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
           <div><label className="label">From</label><input className="field" type="date" name="from" defaultValue={params.from} /></div>
           <div><label className="label">To</label><input className="field" type="date" name="to" defaultValue={params.to} /></div>
+          <div>
+            <label className="label">Account</label>
+            <select className="field" name="account" defaultValue={params.account ?? "all"}>
+              <option value="all">All Accounts</option>
+              {accounts.map((account) => <option key={account.id} value={account.id}>{account.accountName}</option>)}
+            </select>
+          </div>
           <div>
             <label className="label">Market</label>
             <select className="field" name="market" defaultValue={params.market ?? "all"}>
@@ -72,17 +80,18 @@ export default async function TradesPage({
               <option value="loss">Losses</option>
             </select>
           </div>
-          <div className="xl:col-span-5 flex flex-wrap gap-3">
+          <div className="xl:col-span-6 flex flex-wrap gap-3">
             <button className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950">Apply filters</button>
             <Link href="/trades" className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white">Reset</Link>
           </div>
         </form>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-4">
         <div className="panel p-5"><p className="label">Filtered Trades</p><p className="text-3xl font-semibold">{filtered.length}</p></div>
         <div className="panel p-5"><p className="label">Filtered Win Rate</p><p className="text-3xl font-semibold">{analytics.summary.winRate.toFixed(2)}%</p></div>
         <div className="panel p-5"><p className="label">Filtered Net P/L</p><p className={`text-3xl font-semibold ${analytics.summary.netPnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{analytics.summary.netPnl.toFixed(2)} USD</p></div>
+        <div className="panel p-5"><p className="label">Average RR</p><p className="text-3xl font-semibold">{analytics.summary.averageRr.toFixed(2)}R</p></div>
       </section>
 
       <section className="panel p-0">

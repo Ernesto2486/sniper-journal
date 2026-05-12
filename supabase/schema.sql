@@ -1,8 +1,22 @@
 create extension if not exists "pgcrypto";
 
+create table if not exists public.trading_accounts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  account_name text not null,
+  broker text,
+  account_type text,
+  starting_balance numeric default 0,
+  current_balance numeric default 0,
+  is_active boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 create table if not exists public.trades (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
+  trading_account_id uuid references public.trading_accounts(id) on delete set null,
   date date not null,
   time time not null,
   market text not null check (market in ('Forex', 'Futures', 'Stocks', 'Options', 'Crypto')),
@@ -34,9 +48,29 @@ create table if not exists public.trades (
   created_at timestamptz not null default now()
 );
 
+alter table public.trades add column if not exists trading_account_id uuid;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'trades_trading_account_id_fkey'
+  ) then
+    alter table public.trades
+      add constraint trades_trading_account_id_fkey
+      foreign key (trading_account_id)
+      references public.trading_accounts(id)
+      on delete set null;
+  end if;
+end $$;
+
+create index if not exists trading_accounts_user_active_idx on public.trading_accounts (user_id, is_active, created_at);
 create index if not exists trades_user_date_idx on public.trades (user_id, date desc, time desc);
 create index if not exists trades_user_market_idx on public.trades (user_id, market);
 create index if not exists trades_user_setup_idx on public.trades (user_id, setup);
+create index if not exists trades_user_account_idx on public.trades (user_id, trading_account_id);
+
 create table if not exists public.daily_journal (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -58,8 +92,34 @@ create table if not exists public.daily_journal (
 
 create index if not exists daily_journal_user_date_idx on public.daily_journal (user_id, journal_date desc);
 
+alter table public.trading_accounts enable row level security;
 alter table public.trades enable row level security;
 alter table public.daily_journal enable row level security;
+
+drop policy if exists "trading_accounts_select_own" on public.trading_accounts;
+create policy "trading_accounts_select_own"
+  on public.trading_accounts
+  for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "trading_accounts_insert_own" on public.trading_accounts;
+create policy "trading_accounts_insert_own"
+  on public.trading_accounts
+  for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "trading_accounts_update_own" on public.trading_accounts;
+create policy "trading_accounts_update_own"
+  on public.trading_accounts
+  for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "trading_accounts_delete_own" on public.trading_accounts;
+create policy "trading_accounts_delete_own"
+  on public.trading_accounts
+  for delete
+  using (auth.uid() = user_id);
 
 drop policy if exists "trades_select_own" on public.trades;
 create policy "trades_select_own"

@@ -1,9 +1,26 @@
-import type { TradeRecord } from "@/lib/types";
+import type { TradeRecord, TradingAccount } from "@/lib/types";
 
+
+export const demoAccounts: TradingAccount[] = [
+  {
+    id: "demo-main-account",
+    userId: "demo-user",
+    accountName: "Main Account",
+    broker: "Demo Broker",
+    accountType: "Paper",
+    startingBalance: 25000,
+    currentBalance: 28412.9,
+    isActive: true,
+    createdAt: "2026-04-01T00:00:00.000Z",
+    updatedAt: "2026-04-10T00:00:00.000Z"
+  }
+];
 export const demoTrades: TradeRecord[] = [
   {
     id: "demo-1",
     userId: "demo-user",
+    tradingAccountId: "demo-main-account",
+    tradingAccountName: "Main Account",
     date: "2026-04-01",
     time: "09:35",
     market: "Stocks",
@@ -37,6 +54,8 @@ export const demoTrades: TradeRecord[] = [
   {
     id: "demo-2",
     userId: "demo-user",
+    tradingAccountId: "demo-main-account",
+    tradingAccountName: "Main Account",
     date: "2026-04-02",
     time: "11:12",
     market: "Futures",
@@ -70,6 +89,8 @@ export const demoTrades: TradeRecord[] = [
   {
     id: "demo-3",
     userId: "demo-user",
+    tradingAccountId: "demo-main-account",
+    tradingAccountName: "Main Account",
     date: "2026-04-03",
     time: "10:06",
     market: "Crypto",
@@ -103,6 +124,8 @@ export const demoTrades: TradeRecord[] = [
   {
     id: "demo-4",
     userId: "demo-user",
+    tradingAccountId: "demo-main-account",
+    tradingAccountName: "Main Account",
     date: "2026-04-04",
     time: "13:42",
     market: "Options",
@@ -136,6 +159,8 @@ export const demoTrades: TradeRecord[] = [
   {
     id: "demo-5",
     userId: "demo-user",
+    tradingAccountId: "demo-main-account",
+    tradingAccountName: "Main Account",
     date: "2026-04-07",
     time: "09:58",
     market: "Forex",
@@ -169,6 +194,8 @@ export const demoTrades: TradeRecord[] = [
   {
     id: "demo-6",
     userId: "demo-user",
+    tradingAccountId: "demo-main-account",
+    tradingAccountName: "Main Account",
     date: "2026-04-08",
     time: "12:25",
     market: "Stocks",
@@ -202,6 +229,8 @@ export const demoTrades: TradeRecord[] = [
   {
     id: "demo-7",
     userId: "demo-user",
+    tradingAccountId: "demo-main-account",
+    tradingAccountName: "Main Account",
     date: "2026-04-09",
     time: "14:10",
     market: "Futures",
@@ -235,6 +264,8 @@ export const demoTrades: TradeRecord[] = [
   {
     id: "demo-8",
     userId: "demo-user",
+    tradingAccountId: "demo-main-account",
+    tradingAccountName: "Main Account",
     date: "2026-04-10",
     time: "10:31",
     market: "Stocks",
@@ -266,3 +297,5 @@ export const demoTrades: TradeRecord[] = [
     createdAt: "2026-04-10T10:48:00.000Z"
   }
 ];
+
+

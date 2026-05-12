@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths } from "date-fns";
 import { AlertTriangle, ImagePlus, Link2, Save, X } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { loadJournalAction, saveJournalAction } from "@/app/(app)/journal/actions";
 import { TradeTable } from "@/components/trade-table";
-import type { DailyJournalAttachment, DailyJournalRecord, TradeRecord } from "@/lib/types";
+import type { DailyJournalAttachment, DailyJournalRecord, TradeRecord, TradingAccount } from "@/lib/types";
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const moods = [
@@ -48,14 +49,19 @@ function emptyJournal(journalDate: string): DailyJournalRecord {
 export function JournalClient({
   initialJournal,
   trades,
+  accounts,
+  selectedAccountId,
   setups,
   isDemo
 }: {
   initialJournal: DailyJournalRecord | null;
   trades: TradeRecord[];
+  accounts: TradingAccount[];
+  selectedAccountId: string;
   setups: string[];
   isDemo: boolean;
 }) {
+  const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(initialJournal?.journalDate ?? format(new Date(), "yyyy-MM-dd"));
   const [visibleMonth, setVisibleMonth] = useState(startOfMonth(parseISO(selectedDate)));
   const [journal, setJournal] = useState<DailyJournalRecord>(initialJournal ?? emptyJournal(selectedDate));
@@ -70,7 +76,8 @@ export function JournalClient({
     [journal.checklist]
   );
   const tradeStatus = checklistScore === checklistItems.length ? "A+ TRADE READY" : "NO TRADE";
-  const selectedDayTrades = useMemo(() => trades.filter((trade) => trade.date === selectedDate), [selectedDate, trades]);
+  const filteredTrades = useMemo(() => selectedAccountId === "all" ? trades : trades.filter((trade) => trade.tradingAccountId === selectedAccountId), [selectedAccountId, trades]);
+  const selectedDayTrades = useMemo(() => filteredTrades.filter((trade) => trade.date === selectedDate), [filteredTrades, selectedDate]);
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(visibleMonth);
     return eachDayOfInterval({
@@ -169,12 +176,26 @@ export function JournalClient({
             <p className="mt-3 text-slate-400">One page for mindset, market context, screenshots, and selected-day trades.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <div>
+              <label className="sr-only" htmlFor="journal-account">Account</label>
+              <select
+                id="journal-account"
+                className="field h-11 min-w-56"
+                value={selectedAccountId}
+                onChange={(event) => router.push(event.target.value === "all" ? "/journal" : `/journal?account=${event.target.value}`)}
+              >
+                <option value="all">All Accounts</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>{account.accountName}</option>
+                ))}
+              </select>
+            </div>
             <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
               <Save className="h-4 w-4 text-emerald-300" />
               {isPending ? "Syncing..." : saveState}
             </span>
             {checklistScore === checklistItems.length ? (
-              <Link href={`/trades/new?date=${selectedDate}`} className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950">
+              <Link href={`/trades/new?date=${selectedDate}${selectedAccountId !== "all" ? `&account=${selectedAccountId}` : ""}`} className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950">
                 Log trade
               </Link>
             ) : (
@@ -205,7 +226,7 @@ export function JournalClient({
           <div className="mt-3 grid grid-cols-7 gap-2">
             {calendarDays.map((day) => {
               const dateKey = format(day, "yyyy-MM-dd");
-              const dayTrades = trades.filter((trade) => trade.date === dateKey).length;
+              const dayTrades = filteredTrades.filter((trade) => trade.date === dateKey).length;
               const selected = isSameDay(day, parseISO(selectedDate));
               return (
                 <button
@@ -366,4 +387,6 @@ export function JournalClient({
     </div>
   );
 }
+
+
 

@@ -4,9 +4,24 @@ export const DIRECTIONS = ["Long", "Short"] as const;
 export type Market = (typeof MARKETS)[number];
 export type Direction = (typeof DIRECTIONS)[number];
 
+export interface TradingAccount {
+  id: string;
+  userId: string;
+  accountName: string;
+  broker: string;
+  accountType: string;
+  startingBalance: number;
+  currentBalance: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface TradeRecord {
   id: string;
   userId: string;
+  tradingAccountId: string | null;
+  tradingAccountName: string;
   date: string;
   time: string;
   market: Market;
@@ -37,7 +52,6 @@ export interface TradeRecord {
   screenshotUrl: string | null;
   createdAt: string;
 }
-
 
 export type JournalChecklistKey =
   | "biasClear"
@@ -70,6 +84,7 @@ export interface DailyJournalRecord {
   todaysFocus: string[];
   playbooks: string[];
 }
+
 export interface DashboardSummary {
   totalTrades: number;
   winRate: number;
@@ -79,8 +94,11 @@ export interface DashboardSummary {
   profitFactor: number;
   expectancy: number;
   maxDrawdown: number;
+  averageRr: number;
   bestSetup: string;
   worstSetup: string;
+  bestAccount: string;
+  worstAccount: string;
   avgDiscipline: number;
   planFollowRate: number;
   stopRespectRate: number;
@@ -105,6 +123,15 @@ export interface PerformancePoint {
   winRate?: number;
 }
 
+export interface AccountPerformancePoint {
+  accountId: string | null;
+  label: string;
+  pnl: number;
+  trades: number;
+  winRate: number;
+  averageRr: number;
+}
+
 export interface PeriodPerformancePoint {
   label: string;
   pnl: number;
@@ -122,6 +149,7 @@ export interface TradeFilters {
   to?: string;
   market?: string;
   setup?: string;
+  account?: string;
   result?: "win" | "loss" | "all";
 }
 
@@ -131,6 +159,7 @@ export interface DashboardAnalytics {
   winLossDistribution: DistributionPoint[];
   performanceBySetup: PerformancePoint[];
   performanceByDayOfWeek: PerformancePoint[];
+  performanceByAccount: AccountPerformancePoint[];
   dailyPerformance: PeriodPerformancePoint[];
   weeklyPerformance: PeriodPerformancePoint[];
   calendarPerformance: CalendarDayPoint[];
@@ -143,4 +172,3 @@ export interface AuthViewState {
   } | null;
   isDemo: boolean;
 }
-
