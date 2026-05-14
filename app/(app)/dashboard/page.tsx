@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Share2 } from "lucide-react";
 import { AccountFilter } from "@/components/account-filter";
 import { ChartCard } from "@/components/chart-card";
 import { DistributionChart } from "@/components/distribution-chart";
@@ -8,6 +9,20 @@ import { PerformanceBarChart } from "@/components/performance-bar-chart";
 import UpgradeButton from "@/components/upgrade-button";
 import { applyTradeFilters, buildDashboardAnalytics } from "@/lib/analytics";
 import { getDashboardData } from "@/lib/data";
+import { cn, formatCurrency } from "@/lib/utils";
+
+function greetingFor(date: Date) {
+  const hour = date.getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function displayName(email?: string) {
+  if (!email) return "";
+  const name = email.split("@")[0]?.replace(/[._-]+/g, " ").trim();
+  return name ? name.replace(/\b\w/g, (letter) => letter.toUpperCase()) : "";
+}
 
 export default async function DashboardPage({
   searchParams
@@ -16,10 +31,17 @@ export default async function DashboardPage({
 }) {
   const params = await searchParams;
   const selectedAccount = params.account ?? "all";
-  const { accounts, trades, subscription } = await getDashboardData();
+  const { accounts, trades, subscription, auth } = await getDashboardData();
   const filteredTrades = applyTradeFilters(trades, { account: selectedAccount });
   const analytics = buildDashboardAnalytics(filteredTrades);
   const { summary } = analytics;
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const todaysPnl = filteredTrades
+    .filter((trade) => trade.date === today)
+    .reduce((sum, trade) => sum + trade.resultUsd, 0);
+  const name = displayName(auth.user?.email);
+  const greeting = `${greetingFor(now)}${name ? `, ${name}` : ""}`;
 
   return (
     <div className="space-y-6">
@@ -37,18 +59,33 @@ export default async function DashboardPage({
         </div>
       )}
 
-      <section className="panel grid gap-6 p-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300">Main dashboard</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight">Daily command center</h1>
-          <p className="mt-3 max-w-2xl text-slate-400">
-            Review edge, discipline, and performance in one place. The dashboard combines outcome metrics with account context.
-          </p>
-          <div className="mt-5 max-w-xl">
-            <AccountFilter accounts={accounts} selectedAccount={selectedAccount} compact />
+      <section className="panel p-6">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300">
+              {now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+            </p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">{greeting}</h1>
+            <p className="mt-3 text-slate-400">Stay consistent and trust your process.</p>
+            <div className="mt-6 max-w-xl">
+              <AccountFilter accounts={accounts} selectedAccount={selectedAccount} compact />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+            <div className="rounded-3xl border border-white/10 bg-slate-950/50 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Today&apos;s P&amp;L</p>
+              <p className={cn("mt-3 text-3xl font-semibold", todaysPnl > 0 ? "text-emerald-300" : todaysPnl < 0 ? "text-rose-300" : "text-slate-200")}>{formatCurrency(todaysPnl)}</p>
+              <p className="mt-2 text-sm text-slate-500">Based on the selected account filter.</p>
+            </div>
+            <button className="inline-flex items-center justify-center gap-2 rounded-3xl border border-white/10 bg-white/[0.04] px-5 py-4 text-sm font-semibold text-slate-100 transition hover:border-emerald-400/40 hover:bg-emerald-400/10">
+              <Share2 className="h-4 w-4 text-emerald-300" />
+              Share
+            </button>
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-3xl border border-white/10 bg-slate-950/50 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Best account</p>
             <p className="mt-3 text-2xl font-semibold">{summary.bestAccount}</p>
@@ -123,3 +160,4 @@ export default async function DashboardPage({
     </div>
   );
 }
+
