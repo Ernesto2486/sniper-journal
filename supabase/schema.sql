@@ -127,11 +127,44 @@ begin
 end $$;
 
 create index if not exists weekly_reviews_user_week_idx on public.weekly_reviews (user_id, week_start_date desc);
+create table if not exists public.weekly_plans (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  account_id uuid references public.trading_accounts(id) on delete set null,
+  week_start_date date not null,
+  main_goal text not null default '',
+  max_weekly_risk text not null default '',
+  daily_max_loss text not null default '',
+  psychology_focus text not null default '',
+  rules_for_week text not null default '',
+  allowed_setups text not null default '',
+  setups_to_avoid text not null default '',
+  stop_trading_conditions text not null default '',
+  watchlist jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'weekly_plans_user_account_week_key'
+  ) then
+    alter table public.weekly_plans
+      add constraint weekly_plans_user_account_week_key
+      unique nulls not distinct (user_id, account_id, week_start_date);
+  end if;
+end $$;
+
+create index if not exists weekly_plans_user_week_idx on public.weekly_plans (user_id, week_start_date desc);
 
 alter table public.trading_accounts enable row level security;
 alter table public.trades enable row level security;
 alter table public.daily_journal enable row level security;
 alter table public.weekly_reviews enable row level security;
+alter table public.weekly_plans enable row level security;
 
 drop policy if exists "trading_accounts_select_own" on public.trading_accounts;
 create policy "trading_accounts_select_own"
@@ -229,5 +262,29 @@ create policy "weekly_reviews_update_own"
 drop policy if exists "weekly_reviews_delete_own" on public.weekly_reviews;
 create policy "weekly_reviews_delete_own"
   on public.weekly_reviews
+  for delete
+  using (auth.uid() = user_id);
+drop policy if exists "weekly_plans_select_own" on public.weekly_plans;
+create policy "weekly_plans_select_own"
+  on public.weekly_plans
+  for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "weekly_plans_insert_own" on public.weekly_plans;
+create policy "weekly_plans_insert_own"
+  on public.weekly_plans
+  for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "weekly_plans_update_own" on public.weekly_plans;
+create policy "weekly_plans_update_own"
+  on public.weekly_plans
+  for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "weekly_plans_delete_own" on public.weekly_plans;
+create policy "weekly_plans_delete_own"
+  on public.weekly_plans
   for delete
   using (auth.uid() = user_id);

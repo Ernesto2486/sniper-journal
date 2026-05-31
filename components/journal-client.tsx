@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths, subWeeks } from "date-fns";
 import { AlertTriangle, ImagePlus, Link2, Save, X } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { loadJournalAction, loadWeeklyReviewAction, saveJournalAction, saveWeeklyReviewAction } from "@/app/(app)/journal/actions";
+import { loadJournalAction, loadWeeklyPlanAction, loadWeeklyReviewAction, saveJournalAction, saveWeeklyPlanAction, saveWeeklyReviewAction } from "@/app/(app)/journal/actions";
 import { TradeTable } from "@/components/trade-table";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
-import type { DailyJournalAttachment, DailyJournalRecord, TradeRecord, TradingAccount, WeeklyReviewRecord } from "@/lib/types";
+import type { DailyJournalAttachment, DailyJournalRecord, TradeRecord, TradingAccount, WeeklyPlanBias, WeeklyPlanRecord, WeeklyPlanWatchlistRow, WeeklyReviewRecord } from "@/lib/types";
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const moods = [
@@ -19,6 +19,7 @@ const moods = [
   { label: "Locked", icon: "??" }
 ];
 const marketConditions = ["Trending", "Range", "Volatile", "News Day"] as const;
+const planBiasOptions: WeeklyPlanBias[] = ["Bullish", "Bearish", "Range", "Neutral"];
 const checklistItems = [
   ["biasClear", "Bias clear"],
   ["inZone", "In zone"],
@@ -29,6 +30,35 @@ const checklistItems = [
   ["rrMinimum", "RR minimum 1:2"]
 ] as const;
 
+function emptyWatchlistRow(): WeeklyPlanWatchlistRow {
+  return {
+    id: crypto.randomUUID(),
+    symbol: "",
+    bias: "Neutral",
+    keyLevels: "",
+    mainSetup: "",
+    riskPlan: "",
+    notes: ""
+  };
+}
+
+function emptyWeeklyPlan(weekStartDate: string, accountId: string | null): WeeklyPlanRecord {
+  return {
+    id: "",
+    userId: "",
+    accountId,
+    weekStartDate,
+    mainGoal: "",
+    maxWeeklyRisk: "",
+    dailyMaxLoss: "",
+    psychologyFocus: "",
+    rulesForWeek: "",
+    allowedSetups: "",
+    setupsToAvoid: "",
+    stopTradingConditions: "",
+    watchlist: []
+  };
+}
 function emptyWeeklyReview(weekStartDate: string, accountId: string | null): WeeklyReviewRecord {
   return {
     id: "",
@@ -122,11 +152,14 @@ export function JournalClient({
   const [focusInput, setFocusInput] = useState("");
   const [saveState, setSaveState] = useState(isDemo ? "Demo mode" : "Ready");
   const [tradeWarning, setTradeWarning] = useState("");
-  const [journalMode, setJournalMode] = useState<"daily" | "weekly">("daily");
+  const [journalMode, setJournalMode] = useState<"daily" | "weekly" | "plan">("daily");
   const [selectedWeekStart, setSelectedWeekStart] = useState(weekKey(new Date()));
   const [weeklySelectedAccountId, setWeeklySelectedAccountId] = useState(selectedAccountId);
   const [weeklyReview, setWeeklyReview] = useState<WeeklyReviewRecord>(emptyWeeklyReview(weekKey(new Date()), selectedAccountId === "all" ? null : selectedAccountId));
   const [weeklySaveState, setWeeklySaveState] = useState(isDemo ? "Demo mode" : "Ready");
+  const [planSelectedAccountId, setPlanSelectedAccountId] = useState(selectedAccountId);
+  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlanRecord>(emptyWeeklyPlan(weekKey(new Date()), selectedAccountId === "all" ? null : selectedAccountId));
+  const [planSaveState, setPlanSaveState] = useState(isDemo ? "Demo mode" : "Ready");
   const [isPending, startTransition] = useTransition();
 
   const checklistScore = useMemo(
@@ -139,6 +172,7 @@ export function JournalClient({
   const weeklyAccountId = weeklySelectedAccountId === "all" ? null : weeklySelectedAccountId;
   const weeklyFilteredTrades = useMemo(() => weeklySelectedAccountId === "all" ? trades : trades.filter((trade) => trade.tradingAccountId === weeklySelectedAccountId), [trades, weeklySelectedAccountId]);
   const weeklyStats = useMemo(() => buildWeeklyStats(weeklyFilteredTrades, selectedWeekStart), [weeklyFilteredTrades, selectedWeekStart]);
+  const planAccountId = planSelectedAccountId === "all" ? null : planSelectedAccountId;
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(visibleMonth);
     return eachDayOfInterval({
@@ -147,6 +181,29 @@ export function JournalClient({
     });
   }, [visibleMonth]);
 
+  useEffect(() => {
+    startTransition(async () => {
+      const loaded = await loadWeeklyPlanAction(selectedWeekStart, planAccountId);
+      setWeeklyPlan(loaded ?? emptyWeeklyPlan(selectedWeekStart, planAccountId));
+      setPlanSaveState(isDemo ? "Demo mode" : loaded ? "Loaded" : "New plan");
+    });
+  }, [isDemo, selectedWeekStart, planAccountId]);
+
+  useEffect(() => {
+    if (isDemo || journalMode !== "plan") {
+      return;
+    }
+
+    const handle = window.setTimeout(() => {
+      setPlanSaveState("Saving...");
+      startTransition(async () => {
+        const result = await saveWeeklyPlanAction(weeklyPlan);
+        setPlanSaveState(result.ok ? "Saved" : result.message);
+      });
+    }, 700);
+
+    return () => window.clearTimeout(handle);
+  }, [isDemo, journalMode, weeklyPlan]);
   useEffect(() => {
     startTransition(async () => {
       const loaded = await loadWeeklyReviewAction(selectedWeekStart, weeklyAccountId);
@@ -212,6 +269,29 @@ export function JournalClient({
     }));
   }
 
+  function updateWeeklyPlan(patch: Partial<WeeklyPlanRecord>) {
+    setWeeklyPlan((current) => ({
+      ...current,
+      ...patch,
+      weekStartDate: selectedWeekStart,
+      accountId: planAccountId
+    }));
+  }
+
+  function updateWatchlistRow(rowId: string, patch: Partial<WeeklyPlanWatchlistRow>) {
+    updateWeeklyPlan({
+      watchlist: weeklyPlan.watchlist.map((row) => row.id === rowId ? { ...row, ...patch } : row)
+    });
+  }
+
+  function addWatchlistRow() {
+    updateWeeklyPlan({ watchlist: [...weeklyPlan.watchlist, emptyWatchlistRow()] });
+  }
+
+  function removeWatchlistRow(rowId: string) {
+    updateWeeklyPlan({ watchlist: weeklyPlan.watchlist.filter((row) => row.id !== rowId) });
+  }
+
   function addTradingViewLink() {
     const url = tradingViewLink.trim();
     if (!url) return;
@@ -268,7 +348,7 @@ export function JournalClient({
             <h1 className="mt-3 text-4xl font-semibold tracking-tight">Plan the day. Grade the setup.</h1>
             <p className="mt-3 text-slate-400">One page for mindset, market context, screenshots, and selected-day trades.</p>
             <div className="mt-5 flex flex-wrap gap-2">
-              {(["daily", "weekly"] as const).map((mode) => (
+              {(["daily", "weekly", "plan"] as const).map((mode) => (
                 <button
                   key={mode}
                   type="button"
@@ -280,7 +360,7 @@ export function JournalClient({
                       : "border-white/10 bg-white/[0.04] text-slate-200 hover:border-emerald-400/40 hover:bg-emerald-400/10"
                   )}
                 >
-                  {mode === "daily" ? "Daily Journal" : "Weekly Review"}
+                  {mode === "daily" ? "Daily Journal" : mode === "weekly" ? "Weekly Review" : "Weekly Plan"}
                 </button>
               ))}
             </div>
@@ -495,7 +575,7 @@ export function JournalClient({
           </section>
         </section>
       </div>
-      ) : (
+      ) : journalMode === "weekly" ? (
         <WeeklyReviewPanel
           accounts={accounts}
           selectedAccountId={weeklySelectedAccountId}
@@ -509,6 +589,23 @@ export function JournalClient({
           onNextWeek={() => setSelectedWeekStart(weekKey(addWeeks(parseISO(selectedWeekStart), 1)))}
           onWeekChange={(date) => setSelectedWeekStart(weekKey(date))}
           onUpdate={updateWeeklyReview}
+        />
+      ) : (
+        <WeeklyPlanPanel
+          accounts={accounts}
+          selectedAccountId={planSelectedAccountId}
+          selectedWeekStart={selectedWeekStart}
+          weeklyPlan={weeklyPlan}
+          planSaveState={planSaveState}
+          isPending={isPending}
+          onAccountChange={setPlanSelectedAccountId}
+          onPreviousWeek={() => setSelectedWeekStart(weekKey(subWeeks(parseISO(selectedWeekStart), 1)))}
+          onNextWeek={() => setSelectedWeekStart(weekKey(addWeeks(parseISO(selectedWeekStart), 1)))}
+          onWeekChange={(date) => setSelectedWeekStart(weekKey(date))}
+          onUpdate={updateWeeklyPlan}
+          onAddWatchlistRow={addWatchlistRow}
+          onUpdateWatchlistRow={updateWatchlistRow}
+          onRemoveWatchlistRow={removeWatchlistRow}
         />
       )}
     </div>
@@ -634,6 +731,170 @@ function WeeklyStatCard({ label, value, tone = "neutral" }: { label: string; val
     <div className="panel p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
       <p className={cn("mt-2 text-lg font-semibold", tone === "profit" && "text-emerald-300", tone === "loss" && "text-rose-300")}>{value}</p>
+    </div>
+  );
+}
+type WeeklyPlanPanelProps = {
+  accounts: TradingAccount[];
+  selectedAccountId: string;
+  selectedWeekStart: string;
+  weeklyPlan: WeeklyPlanRecord;
+  planSaveState: string;
+  isPending: boolean;
+  onAccountChange: (accountId: string) => void;
+  onPreviousWeek: () => void;
+  onNextWeek: () => void;
+  onWeekChange: (date: string) => void;
+  onUpdate: (patch: Partial<WeeklyPlanRecord>) => void;
+  onAddWatchlistRow: () => void;
+  onUpdateWatchlistRow: (rowId: string, patch: Partial<WeeklyPlanWatchlistRow>) => void;
+  onRemoveWatchlistRow: (rowId: string) => void;
+};
+
+const weeklyPlanFields: { key: keyof WeeklyPlanRecord; label: string; textarea?: boolean }[] = [
+  { key: "mainGoal", label: "Main goal of the week" },
+  { key: "maxWeeklyRisk", label: "Max weekly risk" },
+  { key: "dailyMaxLoss", label: "Daily max loss" },
+  { key: "psychologyFocus", label: "Psychology focus" },
+  { key: "rulesForWeek", label: "Rules for the week", textarea: true },
+  { key: "allowedSetups", label: "Allowed setups", textarea: true },
+  { key: "setupsToAvoid", label: "Setups to avoid", textarea: true },
+  { key: "stopTradingConditions", label: "What would make me stop trading this week?", textarea: true }
+];
+
+function WeeklyPlanPanel({
+  accounts,
+  selectedAccountId,
+  selectedWeekStart,
+  weeklyPlan,
+  planSaveState,
+  isPending,
+  onAccountChange,
+  onPreviousWeek,
+  onNextWeek,
+  onWeekChange,
+  onUpdate,
+  onAddWatchlistRow,
+  onUpdateWatchlistRow,
+  onRemoveWatchlistRow
+}: WeeklyPlanPanelProps) {
+  const weekEnd = format(endOfWeek(parseISO(selectedWeekStart), { weekStartsOn: 1 }), "yyyy-MM-dd");
+  const focusAssets = weeklyPlan.watchlist.map((row) => row.symbol.trim()).filter(Boolean).slice(0, 4).join(", ") || "No assets yet";
+  const mainSetup = weeklyPlan.watchlist.find((row) => row.mainSetup.trim())?.mainSetup || weeklyPlan.allowedSetups || "Not set";
+
+  return (
+    <div className="space-y-6">
+      <section className="panel p-6">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300">Weekly plan</p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight">{format(parseISO(selectedWeekStart), "MMM d")} - {format(parseISO(weekEnd), "MMM d, yyyy")}</h2>
+            <p className="mt-3 text-slate-400">Set the plan before the week starts, then trade inside the lines.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <select className="field h-11 min-w-56" value={selectedAccountId} onChange={(event) => onAccountChange(event.target.value)}>
+              <option value="all">All Accounts</option>
+              {accounts.map((account) => <option key={account.id} value={account.id}>{account.accountName}</option>)}
+            </select>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
+              <Save className="h-4 w-4 text-emerald-300" />
+              {isPending ? "Syncing..." : planSaveState}
+            </span>
+          </div>
+        </div>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <button type="button" className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm" onClick={onPreviousWeek}>Previous week</button>
+          <input className="field max-w-56" type="date" value={selectedWeekStart} onChange={(event) => onWeekChange(event.target.value)} />
+          <button type="button" className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm" onClick={onNextWeek}>Next week</button>
+        </div>
+      </section>
+
+      <section className="panel p-6">
+        <h3 className="text-xl font-semibold">Weekly Plan Summary</h3>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <PlanSummaryItem label="Goal" value={weeklyPlan.mainGoal || "Not set"} />
+          <PlanSummaryItem label="Focus assets" value={focusAssets} />
+          <PlanSummaryItem label="Main setup" value={mainSetup} />
+          <PlanSummaryItem label="Max risk" value={weeklyPlan.maxWeeklyRisk || "Not set"} />
+          <PlanSummaryItem label="Psychology focus" value={weeklyPlan.psychologyFocus || "Not set"} />
+        </div>
+      </section>
+
+      <section className="panel p-6">
+        <h3 className="text-xl font-semibold">Plan fields</h3>
+        <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {weeklyPlanFields.map((field) => (
+            <div key={field.key} className={field.textarea ? "md:col-span-2" : undefined}>
+              <label className="label">{field.label}</label>
+              {field.textarea ? (
+                <textarea className="field min-h-32" value={String(weeklyPlan[field.key] ?? "")} onChange={(event) => onUpdate({ [field.key]: event.target.value } as Partial<WeeklyPlanRecord>)} />
+              ) : (
+                <input className="field" value={String(weeklyPlan[field.key] ?? "")} onChange={(event) => onUpdate({ [field.key]: event.target.value } as Partial<WeeklyPlanRecord>)} />
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-semibold">Weekly Watchlist</h3>
+            <p className="mt-2 text-sm text-slate-400">Assets, bias, zones, setup, and risk plan for the selected week.</p>
+          </div>
+          <button type="button" className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950" onClick={onAddWatchlistRow}>+ Add Asset</button>
+        </div>
+
+        {weeklyPlan.watchlist.length ? (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                <tr className="border-b border-white/10">
+                  <th className="py-3 pr-3 font-semibold">Asset / Symbol</th>
+                  <th className="py-3 pr-3 font-semibold">Bias</th>
+                  <th className="py-3 pr-3 font-semibold">Key Levels / Zones</th>
+                  <th className="py-3 pr-3 font-semibold">Main Setup</th>
+                  <th className="py-3 pr-3 font-semibold">Risk Plan</th>
+                  <th className="py-3 pr-3 font-semibold">Notes</th>
+                  <th className="py-3 pr-3 font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {weeklyPlan.watchlist.map((row) => (
+                  <tr key={row.id}>
+                    <td className="py-3 pr-3"><input className="field min-w-32" value={row.symbol} onChange={(event) => onUpdateWatchlistRow(row.id, { symbol: event.target.value })} /></td>
+                    <td className="py-3 pr-3">
+                      <select className="field min-w-32" value={row.bias} onChange={(event) => onUpdateWatchlistRow(row.id, { bias: event.target.value as WeeklyPlanBias })}>
+                        {planBiasOptions.map((bias) => <option key={bias} value={bias}>{bias}</option>)}
+                      </select>
+                    </td>
+                    <td className="py-3 pr-3"><textarea className="field min-h-20 min-w-44" value={row.keyLevels} onChange={(event) => onUpdateWatchlistRow(row.id, { keyLevels: event.target.value })} /></td>
+                    <td className="py-3 pr-3"><input className="field min-w-40" value={row.mainSetup} onChange={(event) => onUpdateWatchlistRow(row.id, { mainSetup: event.target.value })} /></td>
+                    <td className="py-3 pr-3"><textarea className="field min-h-20 min-w-44" value={row.riskPlan} onChange={(event) => onUpdateWatchlistRow(row.id, { riskPlan: event.target.value })} /></td>
+                    <td className="py-3 pr-3"><textarea className="field min-h-20 min-w-44" value={row.notes} onChange={(event) => onUpdateWatchlistRow(row.id, { notes: event.target.value })} /></td>
+                    <td className="py-3 pr-3">
+                      <button type="button" className="rounded-full border border-rose-300/30 bg-rose-400/10 px-4 py-2 text-sm font-semibold text-rose-100" onClick={() => onRemoveWatchlistRow(row.id)}>Remove</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="mt-5 rounded-3xl border border-dashed border-white/10 p-8 text-center text-sm text-slate-400">
+            No watchlist assets yet. Add the first asset to build this week&apos;s plan.
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function PlanSummaryItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-slate-200">{value}</p>
     </div>
   );
 }

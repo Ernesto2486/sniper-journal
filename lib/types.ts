@@ -106,6 +106,35 @@ export interface WeeklyReviewRecord {
   improveNextWeek: string;
 }
 
+
+export type WeeklyPlanBias = "Bullish" | "Bearish" | "Range" | "Neutral";
+
+export type WeeklyPlanWatchlistRow = {
+  id: string;
+  symbol: string;
+  bias: WeeklyPlanBias;
+  keyLevels: string;
+  mainSetup: string;
+  riskPlan: string;
+  notes: string;
+};
+
+export interface WeeklyPlanRecord {
+  id: string;
+  userId: string;
+  accountId: string | null;
+  weekStartDate: string;
+  mainGoal: string;
+  maxWeeklyRisk: string;
+  dailyMaxLoss: string;
+  psychologyFocus: string;
+  rulesForWeek: string;
+  allowedSetups: string;
+  setupsToAvoid: string;
+  stopTradingConditions: string;
+  watchlist: WeeklyPlanWatchlistRow[];
+}
+
 export interface DashboardSummary {
   totalTrades: number;
   winRate: number;

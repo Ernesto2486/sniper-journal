@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { getAuthState } from "@/lib/data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import type { DailyJournalRecord, WeeklyReviewRecord } from "@/lib/types";
+import type { DailyJournalRecord, WeeklyPlanRecord, WeeklyPlanWatchlistRow, WeeklyReviewRecord } from "@/lib/types";
 
 type SaveJournalInput = Omit<DailyJournalRecord, "id" | "userId">;
 type SaveWeeklyReviewInput = Omit<WeeklyReviewRecord, "id" | "userId">;
+type SaveWeeklyPlanInput = Omit<WeeklyPlanRecord, "id" | "userId">;
 
 function mapDailyJournal(row: Record<string, unknown>): DailyJournalRecord {
   return {
@@ -177,6 +178,95 @@ export async function saveWeeklyReviewAction(input: SaveWeeklyReviewInput) {
   const { error } = existing?.id
     ? await supabase.from("weekly_reviews").update(payload).eq("id", existing.id)
     : await supabase.from("weekly_reviews").insert(payload);
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/journal");
+  return { ok: true, message: "Saved" };
+}
+function mapWeeklyPlan(row: Record<string, unknown>): WeeklyPlanRecord {
+  return {
+    id: String(row.id),
+    userId: String(row.user_id),
+    accountId: row.account_id ? String(row.account_id) : null,
+    weekStartDate: String(row.week_start_date),
+    mainGoal: String(row.main_goal ?? ""),
+    maxWeeklyRisk: String(row.max_weekly_risk ?? ""),
+    dailyMaxLoss: String(row.daily_max_loss ?? ""),
+    psychologyFocus: String(row.psychology_focus ?? ""),
+    rulesForWeek: String(row.rules_for_week ?? ""),
+    allowedSetups: String(row.allowed_setups ?? ""),
+    setupsToAvoid: String(row.setups_to_avoid ?? ""),
+    stopTradingConditions: String(row.stop_trading_conditions ?? ""),
+    watchlist: Array.isArray(row.watchlist) ? row.watchlist as WeeklyPlanWatchlistRow[] : []
+  };
+}
+
+export async function loadWeeklyPlanAction(weekStartDate: string, accountId: string | null): Promise<WeeklyPlanRecord | null> {
+  if (!hasSupabaseEnv()) {
+    return null;
+  }
+
+  const auth = await getAuthState();
+  const supabase = await createClient();
+
+  if (!supabase || !auth.user) {
+    return null;
+  }
+
+  let query = supabase
+    .from("weekly_plans")
+    .select("*")
+    .eq("user_id", auth.user.id)
+    .eq("week_start_date", weekStartDate);
+
+  query = accountId ? query.eq("account_id", accountId) : query.is("account_id", null);
+  const { data } = await query.maybeSingle();
+
+  return data ? mapWeeklyPlan(data as Record<string, unknown>) : null;
+}
+
+export async function saveWeeklyPlanAction(input: SaveWeeklyPlanInput) {
+  if (!hasSupabaseEnv()) {
+    return { ok: false, message: "Connect Supabase to save weekly plans." };
+  }
+
+  const auth = await getAuthState();
+  const supabase = await createClient();
+
+  if (!supabase || !auth.user) {
+    return { ok: false, message: "Sign in to save weekly plans." };
+  }
+
+  const payload = {
+    user_id: auth.user.id,
+    account_id: input.accountId,
+    week_start_date: input.weekStartDate,
+    main_goal: input.mainGoal,
+    max_weekly_risk: input.maxWeeklyRisk,
+    daily_max_loss: input.dailyMaxLoss,
+    psychology_focus: input.psychologyFocus,
+    rules_for_week: input.rulesForWeek,
+    allowed_setups: input.allowedSetups,
+    setups_to_avoid: input.setupsToAvoid,
+    stop_trading_conditions: input.stopTradingConditions,
+    watchlist: input.watchlist
+  };
+
+  let existingQuery = supabase
+    .from("weekly_plans")
+    .select("id")
+    .eq("user_id", auth.user.id)
+    .eq("week_start_date", input.weekStartDate);
+
+  existingQuery = input.accountId ? existingQuery.eq("account_id", input.accountId) : existingQuery.is("account_id", null);
+  const { data: existing } = await existingQuery.maybeSingle();
+
+  const { error } = existing?.id
+    ? await supabase.from("weekly_plans").update(payload).eq("id", existing.id)
+    : await supabase.from("weekly_plans").insert(payload);
 
   if (error) {
     return { ok: false, message: error.message };
