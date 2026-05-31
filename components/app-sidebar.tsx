@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BarChart3, BookOpenText, CalendarDays, LayoutDashboard, LogOut, PlusCircle, Table2, UploadCloud, WalletCards } from "lucide-react";
 import { signOutAction } from "@/app/(app)/trades/actions";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -42,6 +43,8 @@ export function AppSidebar({
           </Link>
         ))}
       </nav>
+
+      <ThemeToggle />
 
 
       {!isDemo ? (
