@@ -43,12 +43,6 @@ export function AppSidebar({
         ))}
       </nav>
 
-      <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4 text-sm text-amber-100">
-        <p className="font-semibold">Subscription-ready</p>
-        <p className="mt-2 text-amber-50/75">
-          Billing hooks are left intentionally modular so Stripe plans can be attached without restructuring the app.
-        </p>
-      </div>
 
       {!isDemo ? (
         <form action={signOutAction}>
