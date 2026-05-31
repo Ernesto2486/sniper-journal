@@ -85,6 +85,27 @@ export interface DailyJournalRecord {
   playbooks: string[];
 }
 
+
+export interface WeeklyReviewRecord {
+  id: string;
+  userId: string;
+  accountId: string | null;
+  weekStartDate: string;
+  bestTrade: string;
+  worstTrade: string;
+  bestSetup: string;
+  worstMistake: string;
+  emotionalState: string;
+  disciplineGrade: string;
+  executionGrade: string;
+  whatWorked: string;
+  whatFailed: string;
+  needsImprovement: string;
+  followedPlan: string;
+  forcedTrades: string;
+  improveNextWeek: string;
+}
+
 export interface DashboardSummary {
   totalTrades: number;
   winRate: number;

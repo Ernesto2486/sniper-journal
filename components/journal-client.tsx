@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths } from "date-fns";
+import { addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths, subWeeks } from "date-fns";
 import { AlertTriangle, ImagePlus, Link2, Save, X } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { loadJournalAction, saveJournalAction } from "@/app/(app)/journal/actions";
+import { loadJournalAction, loadWeeklyReviewAction, saveJournalAction, saveWeeklyReviewAction } from "@/app/(app)/journal/actions";
 import { TradeTable } from "@/components/trade-table";
-import type { DailyJournalAttachment, DailyJournalRecord, TradeRecord, TradingAccount } from "@/lib/types";
+import { cn, formatCurrency, formatPercent } from "@/lib/utils";
+import type { DailyJournalAttachment, DailyJournalRecord, TradeRecord, TradingAccount, WeeklyReviewRecord } from "@/lib/types";
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const moods = [
@@ -28,6 +29,58 @@ const checklistItems = [
   ["rrMinimum", "RR minimum 1:2"]
 ] as const;
 
+function emptyWeeklyReview(weekStartDate: string, accountId: string | null): WeeklyReviewRecord {
+  return {
+    id: "",
+    userId: "",
+    accountId,
+    weekStartDate,
+    bestTrade: "",
+    worstTrade: "",
+    bestSetup: "",
+    worstMistake: "",
+    emotionalState: "",
+    disciplineGrade: "",
+    executionGrade: "",
+    whatWorked: "",
+    whatFailed: "",
+    needsImprovement: "",
+    followedPlan: "",
+    forcedTrades: "",
+    improveNextWeek: ""
+  };
+}
+
+function weekKey(date: Date | string) {
+  return format(startOfWeek(typeof date === "string" ? parseISO(date) : date, { weekStartsOn: 1 }), "yyyy-MM-dd");
+}
+
+function buildWeeklyStats(trades: TradeRecord[], weekStartDate: string) {
+  const weekStart = parseISO(weekStartDate);
+  const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+  const weekTrades = trades.filter((trade) => trade.date >= weekStartDate && trade.date <= format(weekEnd, "yyyy-MM-dd"));
+  const wins = weekTrades.filter((trade) => trade.resultUsd > 0).length;
+  const weeklyPnl = weekTrades.reduce((sum, trade) => sum + trade.resultUsd, 0);
+  const dayMap = new Map<string, number>();
+  const setupMap = new Map<string, number>();
+
+  for (const trade of weekTrades) {
+    dayMap.set(trade.date, (dayMap.get(trade.date) ?? 0) + trade.resultUsd);
+    setupMap.set(trade.setup, (setupMap.get(trade.setup) ?? 0) + trade.resultUsd);
+  }
+
+  const days = [...dayMap.entries()].sort((left, right) => right[1] - left[1]);
+  const setupsByPnl = [...setupMap.entries()].sort((left, right) => right[1] - left[1]);
+
+  return {
+    weeklyPnl,
+    totalTrades: weekTrades.length,
+    winRate: weekTrades.length ? (wins / weekTrades.length) * 100 : 0,
+    bestDay: days[0] ? `${format(parseISO(days[0][0]), "EEE MMM d")} (${formatCurrency(days[0][1])})` : "No trades",
+    worstDay: days.at(-1) ? `${format(parseISO(days.at(-1)![0]), "EEE MMM d")} (${formatCurrency(days.at(-1)![1])})` : "No trades",
+    bestSetup: setupsByPnl[0]?.[0] ?? "No setup"
+  };
+}
 function emptyJournal(journalDate: string): DailyJournalRecord {
   return {
     id: "",
@@ -69,6 +122,11 @@ export function JournalClient({
   const [focusInput, setFocusInput] = useState("");
   const [saveState, setSaveState] = useState(isDemo ? "Demo mode" : "Ready");
   const [tradeWarning, setTradeWarning] = useState("");
+  const [journalMode, setJournalMode] = useState<"daily" | "weekly">("daily");
+  const [selectedWeekStart, setSelectedWeekStart] = useState(weekKey(new Date()));
+  const [weeklySelectedAccountId, setWeeklySelectedAccountId] = useState(selectedAccountId);
+  const [weeklyReview, setWeeklyReview] = useState<WeeklyReviewRecord>(emptyWeeklyReview(weekKey(new Date()), selectedAccountId === "all" ? null : selectedAccountId));
+  const [weeklySaveState, setWeeklySaveState] = useState(isDemo ? "Demo mode" : "Ready");
   const [isPending, startTransition] = useTransition();
 
   const checklistScore = useMemo(
@@ -78,6 +136,9 @@ export function JournalClient({
   const tradeStatus = checklistScore === checklistItems.length ? "A+ TRADE READY" : "NO TRADE";
   const filteredTrades = useMemo(() => selectedAccountId === "all" ? trades : trades.filter((trade) => trade.tradingAccountId === selectedAccountId), [selectedAccountId, trades]);
   const selectedDayTrades = useMemo(() => filteredTrades.filter((trade) => trade.date === selectedDate), [filteredTrades, selectedDate]);
+  const weeklyAccountId = weeklySelectedAccountId === "all" ? null : weeklySelectedAccountId;
+  const weeklyFilteredTrades = useMemo(() => weeklySelectedAccountId === "all" ? trades : trades.filter((trade) => trade.tradingAccountId === weeklySelectedAccountId), [trades, weeklySelectedAccountId]);
+  const weeklyStats = useMemo(() => buildWeeklyStats(weeklyFilteredTrades, selectedWeekStart), [weeklyFilteredTrades, selectedWeekStart]);
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(visibleMonth);
     return eachDayOfInterval({
@@ -86,6 +147,29 @@ export function JournalClient({
     });
   }, [visibleMonth]);
 
+  useEffect(() => {
+    startTransition(async () => {
+      const loaded = await loadWeeklyReviewAction(selectedWeekStart, weeklyAccountId);
+      setWeeklyReview(loaded ?? emptyWeeklyReview(selectedWeekStart, weeklyAccountId));
+      setWeeklySaveState(isDemo ? "Demo mode" : loaded ? "Loaded" : "New review");
+    });
+  }, [isDemo, selectedWeekStart, weeklyAccountId]);
+
+  useEffect(() => {
+    if (isDemo || journalMode !== "weekly") {
+      return;
+    }
+
+    const handle = window.setTimeout(() => {
+      setWeeklySaveState("Saving...");
+      startTransition(async () => {
+        const result = await saveWeeklyReviewAction(weeklyReview);
+        setWeeklySaveState(result.ok ? "Saved" : result.message);
+      });
+    }, 700);
+
+    return () => window.clearTimeout(handle);
+  }, [isDemo, journalMode, weeklyReview]);
   useEffect(() => {
     startTransition(async () => {
       const loaded = await loadJournalAction(selectedDate);
@@ -117,6 +201,15 @@ export function JournalClient({
 
   function updateJournal(patch: Partial<DailyJournalRecord>) {
     setJournal((current) => ({ ...current, ...patch }));
+  }
+
+  function updateWeeklyReview(patch: Partial<WeeklyReviewRecord>) {
+    setWeeklyReview((current) => ({
+      ...current,
+      ...patch,
+      weekStartDate: selectedWeekStart,
+      accountId: weeklyAccountId
+    }));
   }
 
   function addTradingViewLink() {
@@ -174,6 +267,23 @@ export function JournalClient({
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300">Daily journal</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight">Plan the day. Grade the setup.</h1>
             <p className="mt-3 text-slate-400">One page for mindset, market context, screenshots, and selected-day trades.</p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {(["daily", "weekly"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setJournalMode(mode)}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-sm font-semibold transition",
+                    journalMode === mode
+                      ? "border-emerald-300 bg-emerald-400 text-slate-950"
+                      : "border-white/10 bg-white/[0.04] text-slate-200 hover:border-emerald-400/40 hover:bg-emerald-400/10"
+                  )}
+                >
+                  {mode === "daily" ? "Daily Journal" : "Weekly Review"}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div>
@@ -213,6 +323,7 @@ export function JournalClient({
         ) : null}
       </section>
 
+      {journalMode === "daily" ? (
       <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
         <aside className="panel h-fit p-5">
           <div className="flex items-center justify-between gap-3">
@@ -384,9 +495,145 @@ export function JournalClient({
           </section>
         </section>
       </div>
+      ) : (
+        <WeeklyReviewPanel
+          accounts={accounts}
+          selectedAccountId={weeklySelectedAccountId}
+          selectedWeekStart={selectedWeekStart}
+          weeklyReview={weeklyReview}
+          weeklySaveState={weeklySaveState}
+          weeklyStats={weeklyStats}
+          isPending={isPending}
+          onAccountChange={setWeeklySelectedAccountId}
+          onPreviousWeek={() => setSelectedWeekStart(weekKey(subWeeks(parseISO(selectedWeekStart), 1)))}
+          onNextWeek={() => setSelectedWeekStart(weekKey(addWeeks(parseISO(selectedWeekStart), 1)))}
+          onWeekChange={(date) => setSelectedWeekStart(weekKey(date))}
+          onUpdate={updateWeeklyReview}
+        />
+      )}
+    </div>
+  );
+}
+type WeeklyStats = ReturnType<typeof buildWeeklyStats>;
+
+type WeeklyReviewPanelProps = {
+  accounts: TradingAccount[];
+  selectedAccountId: string;
+  selectedWeekStart: string;
+  weeklyReview: WeeklyReviewRecord;
+  weeklySaveState: string;
+  weeklyStats: WeeklyStats;
+  isPending: boolean;
+  onAccountChange: (accountId: string) => void;
+  onPreviousWeek: () => void;
+  onNextWeek: () => void;
+  onWeekChange: (date: string) => void;
+  onUpdate: (patch: Partial<WeeklyReviewRecord>) => void;
+};
+
+const performanceFields: { key: keyof WeeklyReviewRecord; label: string; textarea?: boolean }[] = [
+  { key: "bestTrade", label: "Best Trade" },
+  { key: "worstTrade", label: "Worst Trade" },
+  { key: "bestSetup", label: "Best Setup" },
+  { key: "worstMistake", label: "Worst Mistake" },
+  { key: "emotionalState", label: "Emotional State" },
+  { key: "disciplineGrade", label: "Discipline Grade" },
+  { key: "executionGrade", label: "Execution Grade" }
+];
+
+const questionFields: { key: keyof WeeklyReviewRecord; label: string }[] = [
+  { key: "whatWorked", label: "What worked this week?" },
+  { key: "whatFailed", label: "What failed?" },
+  { key: "needsImprovement", label: "What needs improvement?" },
+  { key: "followedPlan", label: "Did I follow my plan?" },
+  { key: "forcedTrades", label: "Did I force trades?" },
+  { key: "improveNextWeek", label: "What can I improve next week?" }
+];
+
+function WeeklyReviewPanel({
+  accounts,
+  selectedAccountId,
+  selectedWeekStart,
+  weeklyReview,
+  weeklySaveState,
+  weeklyStats,
+  isPending,
+  onAccountChange,
+  onPreviousWeek,
+  onNextWeek,
+  onWeekChange,
+  onUpdate
+}: WeeklyReviewPanelProps) {
+  const weekEnd = format(endOfWeek(parseISO(selectedWeekStart), { weekStartsOn: 1 }), "yyyy-MM-dd");
+
+  return (
+    <div className="space-y-6">
+      <section className="panel p-6">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300">Weekly review</p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight">{format(parseISO(selectedWeekStart), "MMM d")} - {format(parseISO(weekEnd), "MMM d, yyyy")}</h2>
+            <p className="mt-3 text-slate-400">Review the week, grade execution, and set a better plan for next week.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <select className="field h-11 min-w-56" value={selectedAccountId} onChange={(event) => onAccountChange(event.target.value)}>
+              <option value="all">All Accounts</option>
+              {accounts.map((account) => <option key={account.id} value={account.id}>{account.accountName}</option>)}
+            </select>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
+              <Save className="h-4 w-4 text-emerald-300" />
+              {isPending ? "Syncing..." : weeklySaveState}
+            </span>
+          </div>
+        </div>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <button type="button" className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm" onClick={onPreviousWeek}>Previous week</button>
+          <input className="field max-w-56" type="date" value={selectedWeekStart} onChange={(event) => onWeekChange(event.target.value)} />
+          <button type="button" className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm" onClick={onNextWeek}>Next week</button>
+        </div>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <WeeklyStatCard label="Weekly P/L" value={formatCurrency(weeklyStats.weeklyPnl)} tone={weeklyStats.weeklyPnl > 0 ? "profit" : weeklyStats.weeklyPnl < 0 ? "loss" : "neutral"} />
+        <WeeklyStatCard label="Total trades" value={weeklyStats.totalTrades.toString()} />
+        <WeeklyStatCard label="Win rate" value={formatPercent(weeklyStats.winRate)} />
+        <WeeklyStatCard label="Best day" value={weeklyStats.bestDay} />
+        <WeeklyStatCard label="Worst day" value={weeklyStats.worstDay} />
+        <WeeklyStatCard label="Best setup" value={weeklyStats.bestSetup} />
+      </section>
+
+      <section className="panel p-6">
+        <h3 className="text-xl font-semibold">Performance Review</h3>
+        <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {performanceFields.map((field) => (
+            <div key={field.key}>
+              <label className="label">{field.label}</label>
+              <input className="field" value={String(weeklyReview[field.key] ?? "")} onChange={(event) => onUpdate({ [field.key]: event.target.value } as Partial<WeeklyReviewRecord>)} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel p-6">
+        <h3 className="text-xl font-semibold">Questions</h3>
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          {questionFields.map((field) => (
+            <div key={field.key}>
+              <label className="label">{field.label}</label>
+              <textarea className="field min-h-32" value={String(weeklyReview[field.key] ?? "")} onChange={(event) => onUpdate({ [field.key]: event.target.value } as Partial<WeeklyReviewRecord>)} />
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
 
-
-
+function WeeklyStatCard({ label, value, tone = "neutral" }: { label: string; value: string; tone?: "profit" | "loss" | "neutral" }) {
+  return (
+    <div className="panel p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
+      <p className={cn("mt-2 text-lg font-semibold", tone === "profit" && "text-emerald-300", tone === "loss" && "text-rose-300")}>{value}</p>
+    </div>
+  );
+}
