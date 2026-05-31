@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { format, startOfMonth, startOfQuarter, startOfYear, subDays, subMonths } from "date-fns";
-import { Share2 } from "lucide-react";
 import { AccountFilter } from "@/components/account-filter";
 import { ChartCard } from "@/components/chart-card";
 import { DistributionChart } from "@/components/distribution-chart";
 import { EquityCurveChart } from "@/components/equity-curve-chart";
 import { KpiCard, kpiValue } from "@/components/kpi-card";
 import { PerformanceBarChart } from "@/components/performance-bar-chart";
+import { ShareTodaysPnlButton } from "@/components/share-todays-pnl-button";
 import UpgradeButton from "@/components/upgrade-button";
 import { applyTradeFilters, buildDashboardAnalytics } from "@/lib/analytics";
 import { getDashboardData } from "@/lib/data";
@@ -216,10 +216,7 @@ export default async function DashboardPage({
               <p className={cn("mt-3 text-3xl font-semibold", todaysPnl > 0 ? "text-emerald-300" : todaysPnl < 0 ? "text-rose-300" : "text-slate-200")}>{formatCurrency(todaysPnl)}</p>
               <p className="mt-2 text-sm text-slate-500">Based on today and the selected account filter.</p>
             </div>
-            <button className="inline-flex items-center justify-center gap-2 rounded-3xl border border-white/10 bg-white/[0.04] px-5 py-4 text-sm font-semibold text-slate-100 transition hover:border-emerald-400/40 hover:bg-emerald-400/10">
-              <Share2 className="h-4 w-4 text-emerald-300" />
-              Share
-            </button>
+            <ShareTodaysPnlButton todaysPnl={todaysPnl} />
           </div>
         </div>
 
