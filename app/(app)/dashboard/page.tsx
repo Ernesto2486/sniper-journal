@@ -1,16 +1,17 @@
 import Link from "next/link";
-import { format, startOfMonth, startOfQuarter, startOfYear, subDays, subMonths } from "date-fns";
+import { format, parseISO, startOfMonth, startOfQuarter, startOfWeek, startOfYear, subDays, subMonths } from "date-fns";
 import { AccountFilter } from "@/components/account-filter";
+import { AdvancedEquityCurveSection, PeriodPerformanceSection } from "@/components/dashboard-advanced-sections";
 import { ChartCard } from "@/components/chart-card";
 import { DistributionChart } from "@/components/distribution-chart";
-import { EquityCurveChart } from "@/components/equity-curve-chart";
 import { KpiCard, kpiValue } from "@/components/kpi-card";
 import { PerformanceBarChart } from "@/components/performance-bar-chart";
 import { ShareTodaysPnlButton } from "@/components/share-todays-pnl-button";
 import UpgradeButton from "@/components/upgrade-button";
 import { applyTradeFilters, buildDashboardAnalytics } from "@/lib/analytics";
 import { getDashboardData } from "@/lib/data";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, formatPercent } from "@/lib/utils";
+import type { EquityPoint, PerformancePoint, TradeRecord } from "@/lib/types";
 
 type DateRangeKey = "all" | "30d" | "90d" | "mtd" | "qtd" | "ytd" | "12mo" | "custom";
 
@@ -142,6 +143,110 @@ function DateRangeFilterBar({
   );
 }
 
+function buildEquityDrawdown(equityCurve: EquityPoint[]) {
+  let peak = 0;
+  let maxDrawdown = 0;
+  let currentUnderwater = 0;
+  let longestUnderwater = 0;
+
+  const data = equityCurve.map((point) => {
+    peak = Math.max(peak, point.cumulativePnl);
+    const drawdown = Math.max(0, peak - point.cumulativePnl);
+    maxDrawdown = Math.max(maxDrawdown, drawdown);
+
+    if (drawdown > 0) {
+      currentUnderwater += 1;
+      longestUnderwater = Math.max(longestUnderwater, currentUnderwater);
+    } else {
+      currentUnderwater = 0;
+    }
+
+    return {
+      ...point,
+      drawdown: -drawdown
+    };
+  });
+
+  const lastPoint = equityCurve.at(-1);
+  const finalPeak = equityCurve.reduce((highest, point) => Math.max(highest, point.cumulativePnl), 0);
+
+  return {
+    data,
+    metrics: {
+      peakPnl: finalPeak,
+      maxDrawdown,
+      currentDrawdown: lastPoint ? Math.max(0, finalPeak - lastPoint.cumulativePnl) : 0,
+      longestUnderwater
+    }
+  };
+}
+
+function groupTradesByPeriod(trades: TradeRecord[]) {
+  const configs = {
+    daily: {
+      key: (trade: TradeRecord) => trade.date,
+      label: (key: string) => format(parseISO(key), "MMM d")
+    },
+    weekly: {
+      key: (trade: TradeRecord) => format(startOfWeek(parseISO(trade.date), { weekStartsOn: 1 }), "yyyy-MM-dd"),
+      label: (key: string) => `Week of ${format(parseISO(key), "MMM d")}`
+    },
+    monthly: {
+      key: (trade: TradeRecord) => format(parseISO(trade.date), "yyyy-MM"),
+      label: (key: string) => format(parseISO(`${key}-01`), "MMM yyyy")
+    },
+    yearly: {
+      key: (trade: TradeRecord) => format(parseISO(trade.date), "yyyy"),
+      label: (key: string) => key
+    }
+  };
+
+  return Object.fromEntries(
+    Object.entries(configs).map(([period, config]) => {
+      const grouped = new Map<string, { value: number; trades: number }>();
+
+      for (const trade of trades) {
+        const key = config.key(trade);
+        const current = grouped.get(key) ?? { value: 0, trades: 0 };
+        current.value += trade.resultUsd;
+        current.trades += 1;
+        grouped.set(key, current);
+      }
+
+      const points = [...grouped.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => ({
+          label: config.label(key),
+          value: item.value,
+          trades: item.trades
+        }));
+
+      return [period, points];
+    })
+  ) as Record<"daily" | "weekly" | "monthly" | "yearly", PerformancePoint[]>;
+}
+
+function buildSymbolPerformance(trades: TradeRecord[]) {
+  const grouped = new Map<string, { pnl: number; wins: number; trades: TradeRecord[] }>();
+
+  for (const trade of trades) {
+    const current = grouped.get(trade.instrument) ?? { pnl: 0, wins: 0, trades: [] };
+    current.pnl += trade.resultUsd;
+    current.wins += trade.resultUsd > 0 ? 1 : 0;
+    current.trades.push(trade);
+    grouped.set(trade.instrument, current);
+  }
+
+  return [...grouped.entries()]
+    .map(([symbol, item]) => ({
+      symbol,
+      pnl: item.pnl,
+      winRate: item.trades.length ? (item.wins / item.trades.length) * 100 : 0,
+      trades: item.trades.length,
+      averagePnl: item.trades.length ? item.pnl / item.trades.length : 0
+    }))
+    .sort((left, right) => right.pnl - left.pnl);
+}
 export default async function DashboardPage({
   searchParams
 }: {
@@ -180,6 +285,12 @@ export default async function DashboardPage({
   };
   const customFromValue = selectedRange === "custom" ? params.from : resolvedRange.from;
   const customToValue = selectedRange === "custom" ? params.to : resolvedRange.to;
+  const todayTrades = accountFilteredTrades
+    .filter((trade) => trade.date === today)
+    .sort((left, right) => `${left.time} ${left.instrument}`.localeCompare(`${right.time} ${right.instrument}`));
+  const equityDrawdown = buildEquityDrawdown(analytics.equityCurve);
+  const periodPerformance = groupTradesByPeriod(filteredTrades);
+  const symbolPerformance = buildSymbolPerformance(filteredTrades);
 
   return (
     <div className="space-y-6">
@@ -272,12 +383,86 @@ export default async function DashboardPage({
       )}
 
       <section className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-        <ChartCard title="Equity curve" description="Cumulative P/L over time based on the selected account and date range filters.">
-          <EquityCurveChart data={analytics.equityCurve} />
-        </ChartCard>
+        <AdvancedEquityCurveSection data={equityDrawdown.data} metrics={equityDrawdown.metrics} />
         <ChartCard title="Win vs loss distribution" description="Trade count broken into winners and losers with gross amount context.">
           <DistributionChart data={analytics.winLossDistribution} />
         </ChartCard>
+      </section>
+
+      <PeriodPerformanceSection data={periodPerformance} />
+
+      <section className="panel p-5">
+        <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight">Today&apos;s trades</h2>
+            <p className="mt-2 text-sm text-slate-400">Trades logged today for the selected account filter.</p>
+          </div>
+          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-slate-300">
+            {todayTrades.length} trades
+          </span>
+        </div>
+        {todayTrades.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                <tr className="border-b border-white/10">
+                  <th className="py-3 pr-4 font-semibold">Instrument</th>
+                  <th className="py-3 pr-4 font-semibold">Direction</th>
+                  <th className="py-3 pr-4 font-semibold">P/L</th>
+                  <th className="py-3 pr-4 font-semibold">Setup</th>
+                  <th className="py-3 pr-4 font-semibold">Account</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {todayTrades.map((trade) => (
+                  <tr key={trade.id} className="text-slate-200">
+                    <td className="py-4 pr-4 font-semibold">{trade.instrument}</td>
+                    <td className="py-4 pr-4 text-slate-300">{trade.direction}</td>
+                    <td className={cn("py-4 pr-4 font-semibold", trade.resultUsd > 0 ? "text-emerald-300" : trade.resultUsd < 0 ? "text-rose-300" : "text-slate-300")}>{formatCurrency(trade.resultUsd)}</td>
+                    <td className="py-4 pr-4 text-slate-300">{trade.setup}</td>
+                    <td className="py-4 pr-4 text-slate-300">{trade.tradingAccountName || "Unassigned"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-6 text-sm text-slate-400">No trades today</div>
+        )}
+      </section>
+
+      <section className="panel p-5">
+        <div className="mb-5">
+          <h2 className="text-xl font-semibold tracking-tight">Symbol performance</h2>
+          <p className="mt-2 text-sm text-slate-400">Instrument-level results for the selected account and date range.</p>
+        </div>
+        {symbolPerformance.length ? (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {symbolPerformance.map((symbol) => (
+              <div key={symbol.symbol} className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-semibold text-slate-100">{symbol.symbol}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">{symbol.trades} trades</p>
+                  </div>
+                  <p className={cn("text-lg font-semibold", symbol.pnl > 0 ? "text-emerald-300" : symbol.pnl < 0 ? "text-rose-300" : "text-slate-300")}>{formatCurrency(symbol.pnl)}</p>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-slate-500">Win rate</p>
+                    <p className="mt-1 font-semibold text-slate-200">{formatPercent(symbol.winRate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Avg P/L</p>
+                    <p className="mt-1 font-semibold text-slate-200">{formatCurrency(symbol.averagePnl)}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-6 text-sm text-slate-400">No symbol performance yet.</div>
+        )}
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
@@ -288,7 +473,6 @@ export default async function DashboardPage({
           <PerformanceBarChart data={analytics.performanceByAccount.map((account) => ({ label: account.label, value: account.pnl, trades: account.trades, winRate: account.winRate }))} color="#2dd4bf" />
         </ChartCard>
       </section>
-
       <div className="flex justify-end">
         <Link href={`/trades/new${selectedAccount !== "all" ? `?account=${selectedAccount}` : ""}`} className="rounded-full bg-emerald-400 px-6 py-3 text-sm font-semibold text-slate-950">
           Log new trade
