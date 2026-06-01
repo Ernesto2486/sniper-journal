@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths, subWeeks } from "date-fns";
-import { AlertTriangle, ImagePlus, Link2, Save, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ImagePlus, Link2, Save, X } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { loadJournalAction, loadWeeklyPlanAction, loadWeeklyReviewAction, saveJournalAction, saveWeeklyPlanAction, saveWeeklyReviewAction } from "@/app/(app)/journal/actions";
 import { TradeTable } from "@/components/trade-table";
@@ -784,8 +784,21 @@ function WeeklyPlanPanel({
   onRemoveWatchlistRow
 }: WeeklyPlanPanelProps) {
   const weekEnd = format(endOfWeek(parseISO(selectedWeekStart), { weekStartsOn: 1 }), "yyyy-MM-dd");
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const focusAssets = weeklyPlan.watchlist.map((row) => row.symbol.trim()).filter(Boolean).slice(0, 4).join(", ") || "No assets yet";
   const mainSetup = weeklyPlan.watchlist.find((row) => row.mainSetup.trim())?.mainSetup || weeklyPlan.allowedSetups || "Not set";
+
+  function toggleExpanded(rowId: string) {
+    setExpandedRows((current) => {
+      const next = new Set(current);
+      if (next.has(rowId)) {
+        next.delete(rowId);
+      } else {
+        next.add(rowId);
+      }
+      return next;
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -851,54 +864,85 @@ function WeeklyPlanPanel({
         </div>
 
         {weeklyPlan.watchlist.length ? (
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full min-w-[1680px] text-left text-sm">
-              <thead className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                <tr className="border-b border-white/10">
-                  <th className="py-3 pr-3 font-semibold">Asset / Symbol</th>
-                  <th className="py-3 pr-3 font-semibold">Bias</th>
-                  <th className="py-3 pr-3 font-semibold">Key Levels / Zones</th>
-                  <th className="py-3 pr-3 font-semibold">Main Setup</th>
-                  <th className="py-3 pr-3 font-semibold">Risk Plan</th>
-                  <th className="py-3 pr-3 font-semibold">Notes</th>
-                  <th className="py-3 pr-3 font-semibold">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {weeklyPlan.watchlist.map((row) => (
-                  <tr key={row.id}>
-                    <td className="py-3 pr-3"><input className="field min-w-32" value={row.symbol} onChange={(event) => onUpdateWatchlistRow(row.id, { symbol: event.target.value })} /></td>
-                    <td className="py-3 pr-3">
-                      <select className="field min-w-32" value={row.bias} onChange={(event) => onUpdateWatchlistRow(row.id, { bias: event.target.value as WeeklyPlanBias })}>
+          <div className="mt-5 space-y-3">
+            {weeklyPlan.watchlist.map((row) => {
+              const isExpanded = expandedRows.has(row.id);
+              return (
+                <div key={row.id} className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-emerald-400/25">
+                  <div className="grid gap-3 lg:grid-cols-[1fr_160px_1.4fr_1fr_auto] lg:items-start">
+                    <div>
+                      <label className="label">Asset / Symbol</label>
+                      <input className="field" value={row.symbol} onChange={(event) => onUpdateWatchlistRow(row.id, { symbol: event.target.value })} />
+                    </div>
+                    <div>
+                      <label className="label">Bias</label>
+                      <select className="field" value={row.bias} onChange={(event) => onUpdateWatchlistRow(row.id, { bias: event.target.value as WeeklyPlanBias })}>
                         {planBiasOptions.map((bias) => <option key={bias} value={bias}>{bias}</option>)}
                       </select>
-                    </td>
-                    <td className="py-3 pr-3"><textarea className="field min-h-20 min-w-44" value={row.keyLevels} onChange={(event) => onUpdateWatchlistRow(row.id, { keyLevels: event.target.value })} /></td>
-                    <td className="py-3 pr-3"><input className="field min-w-40" value={row.mainSetup} onChange={(event) => onUpdateWatchlistRow(row.id, { mainSetup: event.target.value })} /></td>
-                    <td className="py-3 pr-3"><textarea className="field min-h-20 min-w-44" value={row.riskPlan} onChange={(event) => onUpdateWatchlistRow(row.id, { riskPlan: event.target.value })} /></td>
-                    <td className="py-3 pr-3"><textarea className="field min-h-20 min-w-44" value={row.notes} onChange={(event) => onUpdateWatchlistRow(row.id, { notes: event.target.value })} /></td>
-                    <td className="py-3 pr-3">
-                      <div className="space-y-2">
-                        <input className="field min-w-44" value={row.chartLink} onChange={(event) => onUpdateWatchlistRow(row.id, { chartLink: event.target.value })} />
-                        {row.chartLink ? <a className="block text-xs font-semibold text-emerald-300" href={row.chartLink} target="_blank" rel="noreferrer">Open chart</a> : null}
-                      </div>
-                    </td>
-                    <td className="py-3 pr-3">
-                      <div className="space-y-2">
-                        <input className="field min-w-44" value={row.screenshotLink} onChange={(event) => onUpdateWatchlistRow(row.id, { screenshotLink: event.target.value })} />
-                        {row.screenshotLink ? <a className="block text-xs font-semibold text-emerald-300" href={row.screenshotLink} target="_blank" rel="noreferrer">Open screenshot</a> : null}
-                      </div>
-                    </td>
-                    <td className="py-3 pr-3"><textarea className="field min-h-20 min-w-44" value={row.tradeIdea} onChange={(event) => onUpdateWatchlistRow(row.id, { tradeIdea: event.target.value })} /></td>
-                    <td className="py-3 pr-3"><input className="field min-w-40" value={row.invalidationLevel} onChange={(event) => onUpdateWatchlistRow(row.id, { invalidationLevel: event.target.value })} /></td>
-                    <td className="py-3 pr-3"><textarea className="field min-h-20 min-w-44" value={row.triggerEntryPlan} onChange={(event) => onUpdateWatchlistRow(row.id, { triggerEntryPlan: event.target.value })} /></td>
-                    <td className="py-3 pr-3">
+                    </div>
+                    <div>
+                      <label className="label">Key Levels / Zones</label>
+                      <textarea className="field min-h-24" value={row.keyLevels} onChange={(event) => onUpdateWatchlistRow(row.id, { keyLevels: event.target.value })} />
+                    </div>
+                    <div>
+                      <label className="label">Main Setup</label>
+                      <input className="field" value={row.mainSetup} onChange={(event) => onUpdateWatchlistRow(row.id, { mainSetup: event.target.value })} />
+                    </div>
+                    <div className="flex flex-wrap gap-2 lg:pt-8">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-emerald-400/30 hover:bg-emerald-400/10"
+                        onClick={() => toggleExpanded(row.id)}
+                        aria-expanded={isExpanded}
+                      >
+                        <ChevronDown className={cn("h-4 w-4 text-emerald-300 transition-transform duration-300", isExpanded && "rotate-180")} />
+                        Details
+                      </button>
                       <button type="button" className="rounded-full border border-rose-300/30 bg-rose-400/10 px-4 py-2 text-sm font-semibold text-rose-100" onClick={() => onRemoveWatchlistRow(row.id)}>Remove</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+
+                  <div className={cn("grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out", isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
+                    <div className="min-h-0">
+                      <div className="mt-4 rounded-3xl border border-white/10 bg-slate-950/30 p-4">
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                          <div>
+                            <label className="label">Risk Plan</label>
+                            <textarea className="field min-h-28" value={row.riskPlan} onChange={(event) => onUpdateWatchlistRow(row.id, { riskPlan: event.target.value })} />
+                          </div>
+                          <div>
+                            <label className="label">Notes</label>
+                            <textarea className="field min-h-28" value={row.tradeIdea} onChange={(event) => onUpdateWatchlistRow(row.id, { tradeIdea: event.target.value })} />
+                          </div>
+                          <div>
+                            <label className="label">TradingView Link</label>
+                            <input className="field" value={row.chartLink} onChange={(event) => onUpdateWatchlistRow(row.id, { chartLink: event.target.value })} />
+                            {row.chartLink ? <a className="mt-2 block text-xs font-semibold text-emerald-300" href={row.chartLink} target="_blank" rel="noreferrer">Open TradingView</a> : null}
+                          </div>
+                          <div>
+                            <label className="label">Screenshot Link</label>
+                            <input className="field" value={row.screenshotLink} onChange={(event) => onUpdateWatchlistRow(row.id, { screenshotLink: event.target.value })} />
+                            {row.screenshotLink ? <a className="mt-2 block text-xs font-semibold text-emerald-300" href={row.screenshotLink} target="_blank" rel="noreferrer">Open screenshot</a> : null}
+                          </div>
+                          <div>
+                            <label className="label">Trigger / Entry Plan</label>
+                            <textarea className="field min-h-28" value={row.triggerEntryPlan} onChange={(event) => onUpdateWatchlistRow(row.id, { triggerEntryPlan: event.target.value })} />
+                          </div>
+                          <div>
+                            <label className="label">Invalidation Level</label>
+                            <input className="field" value={row.invalidationLevel} onChange={(event) => onUpdateWatchlistRow(row.id, { invalidationLevel: event.target.value })} />
+                          </div>
+                          <div className="md:col-span-2 xl:col-span-3">
+                            <label className="label">Additional Notes</label>
+                            <textarea className="field min-h-28" value={row.notes} onChange={(event) => onUpdateWatchlistRow(row.id, { notes: event.target.value })} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="mt-5 rounded-3xl border border-dashed border-white/10 p-8 text-center text-sm text-slate-400">
