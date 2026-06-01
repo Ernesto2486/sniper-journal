@@ -186,6 +186,23 @@ export async function saveWeeklyReviewAction(input: SaveWeeklyReviewInput) {
   revalidatePath("/journal");
   return { ok: true, message: "Saved" };
 }
+function normalizeWatchlistRow(row: unknown): WeeklyPlanWatchlistRow {
+  const item = typeof row === "object" && row !== null ? row as Partial<WeeklyPlanWatchlistRow> : {};
+  return {
+    id: String(item.id || crypto.randomUUID()),
+    symbol: String(item.symbol ?? ""),
+    bias: item.bias === "Bullish" || item.bias === "Bearish" || item.bias === "Range" || item.bias === "Neutral" ? item.bias : "Neutral",
+    keyLevels: String(item.keyLevels ?? ""),
+    mainSetup: String(item.mainSetup ?? ""),
+    riskPlan: String(item.riskPlan ?? ""),
+    notes: String(item.notes ?? ""),
+    chartLink: String(item.chartLink ?? ""),
+    screenshotLink: String(item.screenshotLink ?? ""),
+    tradeIdea: String(item.tradeIdea ?? ""),
+    invalidationLevel: String(item.invalidationLevel ?? ""),
+    triggerEntryPlan: String(item.triggerEntryPlan ?? "")
+  };
+}
 function mapWeeklyPlan(row: Record<string, unknown>): WeeklyPlanRecord {
   return {
     id: String(row.id),
@@ -200,7 +217,7 @@ function mapWeeklyPlan(row: Record<string, unknown>): WeeklyPlanRecord {
     allowedSetups: String(row.allowed_setups ?? ""),
     setupsToAvoid: String(row.setups_to_avoid ?? ""),
     stopTradingConditions: String(row.stop_trading_conditions ?? ""),
-    watchlist: Array.isArray(row.watchlist) ? row.watchlist as WeeklyPlanWatchlistRow[] : []
+    watchlist: Array.isArray(row.watchlist) ? row.watchlist.map(normalizeWatchlistRow) : []
   };
 }
 

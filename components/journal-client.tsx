@@ -38,7 +38,12 @@ function emptyWatchlistRow(): WeeklyPlanWatchlistRow {
     keyLevels: "",
     mainSetup: "",
     riskPlan: "",
-    notes: ""
+    notes: "",
+    chartLink: "",
+    screenshotLink: "",
+    tradeIdea: "",
+    invalidationLevel: "",
+    triggerEntryPlan: ""
   };
 }
 
@@ -847,7 +852,7 @@ function WeeklyPlanPanel({
 
         {weeklyPlan.watchlist.length ? (
           <div className="mt-5 overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left text-sm">
+            <table className="w-full min-w-[1680px] text-left text-sm">
               <thead className="text-xs uppercase tracking-[0.2em] text-slate-500">
                 <tr className="border-b border-white/10">
                   <th className="py-3 pr-3 font-semibold">Asset / Symbol</th>
@@ -872,6 +877,21 @@ function WeeklyPlanPanel({
                     <td className="py-3 pr-3"><input className="field min-w-40" value={row.mainSetup} onChange={(event) => onUpdateWatchlistRow(row.id, { mainSetup: event.target.value })} /></td>
                     <td className="py-3 pr-3"><textarea className="field min-h-20 min-w-44" value={row.riskPlan} onChange={(event) => onUpdateWatchlistRow(row.id, { riskPlan: event.target.value })} /></td>
                     <td className="py-3 pr-3"><textarea className="field min-h-20 min-w-44" value={row.notes} onChange={(event) => onUpdateWatchlistRow(row.id, { notes: event.target.value })} /></td>
+                    <td className="py-3 pr-3">
+                      <div className="space-y-2">
+                        <input className="field min-w-44" value={row.chartLink} onChange={(event) => onUpdateWatchlistRow(row.id, { chartLink: event.target.value })} />
+                        {row.chartLink ? <a className="block text-xs font-semibold text-emerald-300" href={row.chartLink} target="_blank" rel="noreferrer">Open chart</a> : null}
+                      </div>
+                    </td>
+                    <td className="py-3 pr-3">
+                      <div className="space-y-2">
+                        <input className="field min-w-44" value={row.screenshotLink} onChange={(event) => onUpdateWatchlistRow(row.id, { screenshotLink: event.target.value })} />
+                        {row.screenshotLink ? <a className="block text-xs font-semibold text-emerald-300" href={row.screenshotLink} target="_blank" rel="noreferrer">Open screenshot</a> : null}
+                      </div>
+                    </td>
+                    <td className="py-3 pr-3"><textarea className="field min-h-20 min-w-44" value={row.tradeIdea} onChange={(event) => onUpdateWatchlistRow(row.id, { tradeIdea: event.target.value })} /></td>
+                    <td className="py-3 pr-3"><input className="field min-w-40" value={row.invalidationLevel} onChange={(event) => onUpdateWatchlistRow(row.id, { invalidationLevel: event.target.value })} /></td>
+                    <td className="py-3 pr-3"><textarea className="field min-h-20 min-w-44" value={row.triggerEntryPlan} onChange={(event) => onUpdateWatchlistRow(row.id, { triggerEntryPlan: event.target.value })} /></td>
                     <td className="py-3 pr-3">
                       <button type="button" className="rounded-full border border-rose-300/30 bg-rose-400/10 px-4 py-2 text-sm font-semibold text-rose-100" onClick={() => onRemoveWatchlistRow(row.id)}>Remove</button>
                     </td>

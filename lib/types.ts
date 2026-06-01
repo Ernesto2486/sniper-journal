@@ -117,6 +117,11 @@ export type WeeklyPlanWatchlistRow = {
   mainSetup: string;
   riskPlan: string;
   notes: string;
+  chartLink: string;
+  screenshotLink: string;
+  tradeIdea: string;
+  invalidationLevel: string;
+  triggerEntryPlan: string;
 };
 
 export interface WeeklyPlanRecord {
