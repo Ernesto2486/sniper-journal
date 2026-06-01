@@ -412,7 +412,7 @@ export default async function DashboardPage({
                 {todayTrades.map((trade) => (
                   <tr key={trade.id} className="text-slate-200">
                     <td className="py-4 pr-4 font-semibold">{trade.instrument}</td>
-                    <td className="py-4 pr-4 text-slate-300">{trade.direction}</td>
+                    <td className="py-4 pr-4 text-slate-300">{trade.optionType ? `${trade.direction} ${trade.optionType}` : trade.direction}</td>
                     <td className={cn("py-4 pr-4 font-semibold", trade.resultUsd > 0 ? "text-emerald-300" : trade.resultUsd < 0 ? "text-rose-300" : "text-slate-300")}>{formatCurrency(trade.resultUsd)}</td>
                     <td className="py-4 pr-4 text-slate-300">{trade.setup}</td>
                     <td className="py-4 pr-4 text-slate-300">{trade.tradingAccountName || "Unassigned"}</td>

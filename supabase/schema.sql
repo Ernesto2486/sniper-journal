@@ -23,6 +23,7 @@ create table if not exists public.trades (
   instrument text not null,
   setup text not null,
   direction text not null check (direction in ('Long', 'Short')),
+  option_type text check (option_type in ('Call', 'Put')),
   entry_price numeric(14, 4) not null,
   exit_price numeric(14, 4) not null,
   stop_loss numeric(14, 4) not null,
@@ -49,6 +50,20 @@ create table if not exists public.trades (
 );
 
 alter table public.trades add column if not exists trading_account_id uuid;
+alter table public.trades add column if not exists option_type text;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'trades_option_type_check'
+  ) then
+    alter table public.trades
+      add constraint trades_option_type_check
+      check (option_type is null or option_type in ('Call', 'Put'));
+  end if;
+end $$;
 
 do $$
 begin

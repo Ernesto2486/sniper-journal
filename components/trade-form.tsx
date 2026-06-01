@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { browserDateKey } from "@/lib/timezone";
-import { DIRECTIONS, MARKETS, type TradeRecord, type TradingAccount } from "@/lib/types";
+import { calculateTradeResult } from "@/lib/trade-calculations";
+import { DIRECTIONS, MARKETS, OPTION_TYPES, type TradeRecord, type TradingAccount } from "@/lib/types";
 
 type TradeAction = (formData: FormData) => void | Promise<void>;
 
@@ -15,6 +16,7 @@ function initialFromTrade(trade?: TradeRecord | null, initialDate?: string, init
     instrument: trade?.instrument ?? "",
     setup: trade?.setup ?? "",
     direction: trade?.direction ?? "Long",
+    optionType: trade?.optionType ?? "Call",
     entryPrice: String(trade?.entryPrice ?? ""),
     exitPrice: String(trade?.exitPrice ?? ""),
     stopLoss: String(trade?.stopLoss ?? ""),
@@ -68,8 +70,16 @@ export function TradeForm({
   const exit = numberFromInput(values.exitPrice);
   const size = numberFromInput(values.size);
   const fees = numberFromInput(values.fees);
-  const estimatedPnl = values.direction === "Long" ? (exit - entry) * size - fees : (entry - exit) * size - fees;
-  const estimatedPercent = entry ? (estimatedPnl / Math.abs(entry * size || 1)) * 100 : 0;
+  const { multiplier, resultUsd: estimatedPnl, resultPercent: estimatedPercent } = calculateTradeResult({
+    market: values.market,
+    direction: values.direction,
+    entryPrice: entry,
+    exitPrice: exit,
+    size,
+    fees
+  });
+  const calculatedResultUsd = estimatedPnl.toFixed(2);
+  const calculatedResultPercent = estimatedPercent.toFixed(2);
 
   return (
     <form action={action} className="space-y-8">
@@ -86,7 +96,8 @@ export function TradeForm({
             <p className="mt-2 text-sm text-slate-400">Capture execution details, market context, and behavior on the same record.</p>
           </div>
           <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-            Estimated: {estimatedPnl.toFixed(2)} USD | {estimatedPercent.toFixed(2)}%
+            Estimated: {calculatedResultUsd} USD | {calculatedResultPercent}%
+            {values.market === "Options" ? <span className="ml-2 text-emerald-200/80">x{multiplier}</span> : null}
           </div>
         </div>
 
@@ -114,6 +125,7 @@ export function TradeForm({
     setValues({
       ...values,
       market: event.target.value as typeof values.market,
+      optionType: event.target.value === "Options" ? values.optionType : "Call",
     })
   }
 >
@@ -145,6 +157,17 @@ export function TradeForm({
               ))}
             </select>
           </FormField>
+          {values.market === "Options" ? (
+            <FormField label="Option Type">
+              <select className="field" name="option_type" value={values.optionType} onChange={(event) => setValues({ ...values, optionType: event.target.value as typeof values.optionType })}>
+                {OPTION_TYPES.map((optionType) => (
+                  <option key={optionType}>{optionType}</option>
+                ))}
+              </select>
+            </FormField>
+          ) : (
+            <input type="hidden" name="option_type" value="" />
+          )}
           <FormField label="Entry Price">
             <input className="field" type="number" step="0.0001" name="entry_price" value={values.entryPrice} onChange={(event) => setValues({ ...values, entryPrice: event.target.value })} required />
           </FormField>
@@ -164,10 +187,10 @@ export function TradeForm({
             <input className="field" type="number" step="0.01" name="fees" value={values.fees} onChange={(event) => setValues({ ...values, fees: event.target.value })} required />
           </FormField>
           <FormField label="Result USD">
-            <input className="field" type="number" step="0.01" name="result_usd" value={values.resultUsd} onChange={(event) => setValues({ ...values, resultUsd: event.target.value })} placeholder={estimatedPnl.toFixed(2)} required />
+            <input className="field" type="number" step="0.01" name="result_usd" value={calculatedResultUsd} readOnly required />
           </FormField>
           <FormField label="Result %">
-            <input className="field" type="number" step="0.01" name="result_percent" value={values.resultPercent} onChange={(event) => setValues({ ...values, resultPercent: event.target.value })} placeholder={estimatedPercent.toFixed(2)} required />
+            <input className="field" type="number" step="0.01" name="result_percent" value={calculatedResultPercent} readOnly required />
           </FormField>
           <FormField label="Setup Tags">
             <input className="field" name="setup_tags" value={values.setupTags} onChange={(event) => setValues({ ...values, setupTags: event.target.value })} placeholder="breakout, trend-day, A+" />

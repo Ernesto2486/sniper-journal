@@ -36,6 +36,7 @@ function mapTrade(row: Record<string, unknown>, accounts: TradingAccount[] = [])
     instrument: String(row.instrument),
     setup: String(row.setup),
     direction: String(row.direction) as TradeRecord["direction"],
+    optionType: row.option_type ? String(row.option_type) as TradeRecord["optionType"] : null,
     entryPrice: Number(row.entry_price),
     exitPrice: Number(row.exit_price),
     stopLoss: Number(row.stop_loss),

@@ -1,8 +1,10 @@
 export const MARKETS = ["Forex", "Futures", "Stocks", "Options", "Crypto"] as const;
 export const DIRECTIONS = ["Long", "Short"] as const;
+export const OPTION_TYPES = ["Call", "Put"] as const;
 
 export type Market = (typeof MARKETS)[number];
 export type Direction = (typeof DIRECTIONS)[number];
+export type OptionType = (typeof OPTION_TYPES)[number];
 
 export interface TradingAccount {
   id: string;
@@ -28,6 +30,7 @@ export interface TradeRecord {
   instrument: string;
   setup: string;
   direction: Direction;
+  optionType: OptionType | null;
   entryPrice: number;
   exitPrice: number;
   stopLoss: number;

@@ -5,25 +5,44 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { getAuthState, getDefaultTradingAccount } from "@/lib/data";
+import { calculateTradeResult } from "@/lib/trade-calculations";
+import type { Direction, Market, OptionType } from "@/lib/types";
 import { toBoolean, toNumber, toOptionalString, toStringValue } from "@/lib/utils";
 
 function buildTradePayload(formData: FormData) {
+  const market = toStringValue(formData.get("market")) as Market;
+  const direction = toStringValue(formData.get("direction")) as Direction;
+  const optionType = toStringValue(formData.get("option_type")) as OptionType;
+  const entryPrice = toNumber(formData.get("entry_price"));
+  const exitPrice = toNumber(formData.get("exit_price"));
+  const size = toNumber(formData.get("size"));
+  const fees = toNumber(formData.get("fees"));
+  const result = calculateTradeResult({
+    market,
+    direction,
+    entryPrice,
+    exitPrice,
+    size,
+    fees
+  });
+
   return {
     trading_account_id: toOptionalString(formData.get("trading_account_id")),
     date: toStringValue(formData.get("date")),
     time: toStringValue(formData.get("time")),
-    market: toStringValue(formData.get("market")),
+    market,
     instrument: toStringValue(formData.get("instrument")),
     setup: toStringValue(formData.get("setup")),
-    direction: toStringValue(formData.get("direction")),
-    entry_price: toNumber(formData.get("entry_price")),
-    exit_price: toNumber(formData.get("exit_price")),
+    direction,
+    option_type: market === "Options" && (optionType === "Call" || optionType === "Put") ? optionType : null,
+    entry_price: entryPrice,
+    exit_price: exitPrice,
     stop_loss: toNumber(formData.get("stop_loss")),
     take_profit: toNumber(formData.get("take_profit")),
-    size: toNumber(formData.get("size")),
-    fees: toNumber(formData.get("fees")),
-    result_usd: toNumber(formData.get("result_usd")),
-    result_percent: toNumber(formData.get("result_percent")),
+    size,
+    fees,
+    result_usd: Number(result.resultUsd.toFixed(2)),
+    result_percent: Number(result.resultPercent.toFixed(2)),
     notes: toStringValue(formData.get("notes")),
     followed_plan: toBoolean(formData.get("followed_plan")),
     revenge_trade: toBoolean(formData.get("revenge_trade")),
