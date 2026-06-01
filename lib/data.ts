@@ -4,7 +4,7 @@ import { buildDashboardAnalytics, sortTrades } from "@/lib/analytics";
 import { demoAccounts, demoTrades } from "@/lib/demo-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import type { AuthViewState, DashboardAnalytics, TradeRecord, TradingAccount } from "@/lib/types";
+import type { AuthViewState, DashboardAnalytics, SetupRecord, TradeRecord, TradingAccount } from "@/lib/types";
 
 function mapTradingAccount(row: Record<string, unknown>): TradingAccount {
   return {
@@ -37,6 +37,7 @@ function mapTrade(row: Record<string, unknown>, accounts: TradingAccount[] = [])
     setup: String(row.setup),
     direction: String(row.direction) as TradeRecord["direction"],
     optionType: row.option_type ? String(row.option_type) as TradeRecord["optionType"] : null,
+    executionTimeframe: String(row.execution_timeframe ?? ""),
     entryPrice: Number(row.entry_price),
     exitPrice: Number(row.exit_price),
     stopLoss: Number(row.stop_loss),
@@ -60,6 +61,26 @@ function mapTrade(row: Record<string, unknown>, accounts: TradingAccount[] = [])
     setupTags: Array.isArray(row.setup_tags) ? row.setup_tags.map(String) : [],
     screenshotUrl: row.screenshot_url ? String(row.screenshot_url) : null,
     createdAt: String(row.created_at)
+  };
+}
+
+function mapSetup(row: Record<string, unknown>): SetupRecord {
+  return {
+    id: String(row.id),
+    userId: String(row.user_id),
+    setupName: String(row.setup_name ?? ""),
+    category: String(row.category ?? ""),
+    preferredTimeframe: String(row.preferred_timeframe ?? ""),
+    description: String(row.description ?? ""),
+    entryRules: String(row.entry_rules ?? ""),
+    riskRules: String(row.risk_rules ?? ""),
+    confirmationRules: String(row.confirmation_rules ?? ""),
+    avoidConditions: String(row.avoid_conditions ?? ""),
+    screenshotUrl: String(row.screenshot_url ?? ""),
+    notes: String(row.notes ?? ""),
+    isFavorite: Boolean(row.is_favorite),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at ?? row.created_at)
   };
 }
 
@@ -145,6 +166,32 @@ export async function getDefaultTradingAccount() {
   const accounts = await getTradingAccounts();
   return accounts.find((account) => account.isActive) ?? accounts[0] ?? null;
 }
+
+export const getSetups = cache(async (): Promise<SetupRecord[]> => {
+  const auth = await getAuthState();
+
+  if (auth.isDemo) {
+    return [];
+  }
+
+  const supabase = await createClient();
+  if (!supabase || !auth.user) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("setups")
+    .select("*")
+    .eq("user_id", auth.user.id)
+    .order("is_favorite", { ascending: false })
+    .order("setup_name", { ascending: true });
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data.map((row) => mapSetup(row as Record<string, unknown>));
+});
 
 export const getTrades = cache(async (): Promise<TradeRecord[]> => {
   const auth = await getAuthState();

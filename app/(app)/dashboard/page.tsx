@@ -344,6 +344,16 @@ export default async function DashboardPage({
             <p className="mt-3 text-2xl font-semibold">{filteredTrades.length}</p>
           </div>
         </div>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="rounded-3xl border border-emerald-300/15 bg-emerald-400/10 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-200">Best timeframe</p>
+            <p className="mt-3 text-2xl font-semibold text-emerald-100">{summary.bestTimeframe}</p>
+          </div>
+          <div className="rounded-3xl border border-rose-300/15 bg-rose-400/10 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-rose-200">Worst timeframe</p>
+            <p className="mt-3 text-2xl font-semibold text-rose-100">{summary.worstTimeframe}</p>
+          </div>
+        </div>
       </section>
 
       <DateRangeFilterBar params={filterParams} activeRange={selectedRange} fromValue={customFromValue} toValue={customToValue} />

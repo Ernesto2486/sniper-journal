@@ -1,10 +1,30 @@
 export const MARKETS = ["Forex", "Futures", "Stocks", "Options", "Crypto"] as const;
 export const DIRECTIONS = ["Long", "Short"] as const;
 export const OPTION_TYPES = ["Call", "Put"] as const;
+export const EXECUTION_TIMEFRAMES = ["1m", "3m", "5m", "15m", "30m", "1H", "4H", "Daily", "Swing"] as const;
 
 export type Market = (typeof MARKETS)[number];
 export type Direction = (typeof DIRECTIONS)[number];
 export type OptionType = (typeof OPTION_TYPES)[number];
+export type ExecutionTimeframe = (typeof EXECUTION_TIMEFRAMES)[number];
+
+export interface SetupRecord {
+  id: string;
+  userId: string;
+  setupName: string;
+  category: string;
+  preferredTimeframe: string;
+  description: string;
+  entryRules: string;
+  riskRules: string;
+  confirmationRules: string;
+  avoidConditions: string;
+  screenshotUrl: string;
+  notes: string;
+  isFavorite: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface TradingAccount {
   id: string;
@@ -31,6 +51,7 @@ export interface TradeRecord {
   setup: string;
   direction: Direction;
   optionType: OptionType | null;
+  executionTimeframe: string;
   entryPrice: number;
   exitPrice: number;
   stopLoss: number;
@@ -173,6 +194,8 @@ export interface DashboardSummary {
   worstSetup: string;
   bestAccount: string;
   worstAccount: string;
+  bestTimeframe: string;
+  worstTimeframe: string;
   avgDiscipline: number;
   planFollowRate: number;
   stopRespectRate: number;
@@ -206,6 +229,15 @@ export interface AccountPerformancePoint {
   averageRr: number;
 }
 
+export interface EdgePerformancePoint {
+  label: string;
+  pnl: number;
+  trades: number;
+  winRate: number;
+  averageRr: number;
+  profitFactor: number;
+}
+
 export interface PeriodPerformancePoint {
   label: string;
   pnl: number;
@@ -232,6 +264,8 @@ export interface DashboardAnalytics {
   equityCurve: EquityPoint[];
   winLossDistribution: DistributionPoint[];
   performanceBySetup: PerformancePoint[];
+  setupStats: EdgePerformancePoint[];
+  performanceByTimeframe: EdgePerformancePoint[];
   performanceByDayOfWeek: PerformancePoint[];
   performanceByAccount: AccountPerformancePoint[];
   dailyPerformance: PeriodPerformancePoint[];

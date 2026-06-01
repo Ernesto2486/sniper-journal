@@ -11,6 +11,7 @@ import type {
   CalendarDayPoint,
   DashboardAnalytics,
   DashboardSummary,
+  EdgePerformancePoint,
   PerformancePoint,
   PeriodPerformancePoint,
   TradeFilters,
@@ -98,7 +99,11 @@ function buildAccountPerformance(trades: TradeRecord[]): AccountPerformancePoint
     .sort((left, right) => right.pnl - left.pnl);
 }
 
-function buildSummary(trades: TradeRecord[], accountPerformance: AccountPerformancePoint[]): DashboardSummary {
+function buildSummary(
+  trades: TradeRecord[],
+  accountPerformance: AccountPerformancePoint[],
+  timeframePerformance: EdgePerformancePoint[]
+): DashboardSummary {
   const wins = trades.filter((trade) => trade.resultUsd > 0);
   const losses = trades.filter((trade) => trade.resultUsd < 0);
   const grossProfit = wins.reduce((sum, trade) => sum + trade.resultUsd, 0);
@@ -129,6 +134,7 @@ function buildSummary(trades: TradeRecord[], accountPerformance: AccountPerforma
 
   const rankedSetups = [...setupPerformance.entries()].sort((left, right) => right[1].total - left[1].total);
   const rankedAccounts = [...accountPerformance].sort((left, right) => right.pnl - left.pnl);
+  const rankedTimeframes = [...timeframePerformance].sort((left, right) => right.pnl - left.pnl);
 
   return {
     totalTrades: trades.length,
@@ -144,6 +150,8 @@ function buildSummary(trades: TradeRecord[], accountPerformance: AccountPerforma
     worstSetup: rankedSetups.at(-1)?.[0] ?? "No data",
     bestAccount: rankedAccounts[0]?.label ?? "No data",
     worstAccount: rankedAccounts.at(-1)?.label ?? "No data",
+    bestTimeframe: rankedTimeframes[0]?.label ?? "No data",
+    worstTimeframe: rankedTimeframes.at(-1)?.label ?? "No data",
     avgDiscipline: average(trades.map((trade) => trade.disciplineScore)),
     planFollowRate: trades.length ? (trades.filter((trade) => trade.followedPlan).length / trades.length) * 100 : 0,
     stopRespectRate: trades.length ? (trades.filter((trade) => trade.respectStopLoss).length / trades.length) * 100 : 0
@@ -169,6 +177,38 @@ function buildPerformanceBySetup(trades: TradeRecord[]): PerformancePoint[] {
       winRate: data.trades ? (data.wins / data.trades) * 100 : 0
     }))
     .sort((left, right) => right.value - left.value);
+}
+
+function buildEdgePerformance(
+  trades: TradeRecord[],
+  labelForTrade: (trade: TradeRecord) => string
+): EdgePerformancePoint[] {
+  const grouped = new Map<string, TradeRecord[]>();
+
+  for (const trade of trades) {
+    const label = labelForTrade(trade).trim() || "Unspecified";
+    const current = grouped.get(label) ?? [];
+    current.push(trade);
+    grouped.set(label, current);
+  }
+
+  return [...grouped.entries()]
+    .map(([label, groupTrades]) => {
+      const wins = groupTrades.filter((trade) => trade.resultUsd > 0);
+      const losses = groupTrades.filter((trade) => trade.resultUsd < 0);
+      const grossProfit = wins.reduce((sum, trade) => sum + trade.resultUsd, 0);
+      const grossLoss = Math.abs(losses.reduce((sum, trade) => sum + trade.resultUsd, 0));
+
+      return {
+        label,
+        pnl: groupTrades.reduce((sum, trade) => sum + trade.resultUsd, 0),
+        trades: groupTrades.length,
+        winRate: groupTrades.length ? (wins.length / groupTrades.length) * 100 : 0,
+        averageRr: average(groupTrades.map((trade) => tradeRr(trade))),
+        profitFactor: grossLoss === 0 ? (grossProfit > 0 ? grossProfit : 0) : grossProfit / grossLoss
+      };
+    })
+    .sort((left, right) => right.pnl - left.pnl);
 }
 
 function buildPerformanceByDayOfWeek(trades: TradeRecord[]): PerformancePoint[] {
@@ -216,6 +256,8 @@ function buildWeeklyPerformance(trades: TradeRecord[]): PeriodPerformancePoint[]
 export function buildDashboardAnalytics(trades: TradeRecord[]): DashboardAnalytics {
   const orderedTrades = sortTrades(trades);
   const accountPerformance = buildAccountPerformance(orderedTrades);
+  const timeframePerformance = buildEdgePerformance(orderedTrades, (trade) => trade.executionTimeframe);
+  const setupStats = buildEdgePerformance(orderedTrades, (trade) => trade.setup);
   let running = 0;
 
   const equityCurve = orderedTrades.map((trade) => {
@@ -231,13 +273,15 @@ export function buildDashboardAnalytics(trades: TradeRecord[]): DashboardAnalyti
   const losses = orderedTrades.filter((trade) => trade.resultUsd < 0);
 
   return {
-    summary: buildSummary(orderedTrades, accountPerformance),
+    summary: buildSummary(orderedTrades, accountPerformance, timeframePerformance),
     equityCurve,
     winLossDistribution: [
       { name: "Wins", value: wins.length, amount: wins.reduce((sum, trade) => sum + trade.resultUsd, 0) },
       { name: "Losses", value: losses.length, amount: Math.abs(losses.reduce((sum, trade) => sum + trade.resultUsd, 0)) }
     ],
     performanceBySetup: buildPerformanceBySetup(orderedTrades),
+    setupStats,
+    performanceByTimeframe: timeframePerformance,
     performanceByDayOfWeek: buildPerformanceByDayOfWeek(orderedTrades),
     performanceByAccount: accountPerformance,
     dailyPerformance: buildDailyPerformance(orderedTrades),

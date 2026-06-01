@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { browserDateKey } from "@/lib/timezone";
 import { calculateTradeResult } from "@/lib/trade-calculations";
-import { DIRECTIONS, MARKETS, OPTION_TYPES, type TradeRecord, type TradingAccount } from "@/lib/types";
+import { DIRECTIONS, EXECUTION_TIMEFRAMES, MARKETS, OPTION_TYPES, type SetupRecord, type TradeRecord, type TradingAccount } from "@/lib/types";
 
 type TradeAction = (formData: FormData) => void | Promise<void>;
 
@@ -17,6 +17,7 @@ function initialFromTrade(trade?: TradeRecord | null, initialDate?: string, init
     setup: trade?.setup ?? "",
     direction: trade?.direction ?? "Long",
     optionType: trade?.optionType ?? "Call",
+    executionTimeframe: trade?.executionTimeframe ?? "5m",
     entryPrice: String(trade?.entryPrice ?? ""),
     exitPrice: String(trade?.exitPrice ?? ""),
     stopLoss: String(trade?.stopLoss ?? ""),
@@ -54,7 +55,8 @@ export function TradeForm({
   initialDate,
   initialAccountId,
   defaultAccountId,
-  accounts
+  accounts,
+  setups = []
 }: {
   trade?: TradeRecord | null;
   action: TradeAction;
@@ -63,6 +65,7 @@ export function TradeForm({
   initialAccountId?: string;
   defaultAccountId?: string;
   accounts: TradingAccount[];
+  setups?: SetupRecord[];
 }) {
   const [values, setValues] = useState(initialFromTrade(trade, initialDate, initialAccountId, defaultAccountId));
 
@@ -138,7 +141,12 @@ export function TradeForm({
             <input className="field" name="instrument" value={values.instrument} onChange={(event) => setValues({ ...values, instrument: event.target.value })} placeholder="SPY, NQ, AAPL" required />
           </FormField>
           <FormField label="Setup">
-            <input className="field" name="setup" value={values.setup} onChange={(event) => setValues({ ...values, setup: event.target.value })} placeholder="Sniper Pullback" required />
+            <input className="field" name="setup" list="setup-library-options" value={values.setup} onChange={(event) => setValues({ ...values, setup: event.target.value })} placeholder="Sniper Pullback" required />
+            <datalist id="setup-library-options">
+              {setups.map((setup) => (
+                <option key={setup.id} value={setup.setupName} />
+              ))}
+            </datalist>
           </FormField>
           <FormField label="Direction">
             <select
@@ -168,6 +176,13 @@ export function TradeForm({
           ) : (
             <input type="hidden" name="option_type" value="" />
           )}
+          <FormField label="Execution Timeframe">
+            <select className="field" name="execution_timeframe" value={values.executionTimeframe} onChange={(event) => setValues({ ...values, executionTimeframe: event.target.value })}>
+              {EXECUTION_TIMEFRAMES.map((timeframe) => (
+                <option key={timeframe}>{timeframe}</option>
+              ))}
+            </select>
+          </FormField>
           <FormField label="Entry Price">
             <input className="field" type="number" step="0.0001" name="entry_price" value={values.entryPrice} onChange={(event) => setValues({ ...values, entryPrice: event.target.value })} required />
           </FormField>

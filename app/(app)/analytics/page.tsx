@@ -4,7 +4,8 @@ import { EquityCurveChart } from "@/components/equity-curve-chart";
 import { PerformanceBarChart } from "@/components/performance-bar-chart";
 import { applyTradeFilters, buildDashboardAnalytics } from "@/lib/analytics";
 import { getDashboardData } from "@/lib/data";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
+import type { EdgePerformancePoint } from "@/lib/types";
 
 export default async function AnalyticsPage({
   searchParams
@@ -68,6 +69,20 @@ export default async function AnalyticsPage({
         <ChartCard title="Performance by account" description="Account P/L, trade count, and win-rate context.">
           <PerformanceBarChart data={analytics.performanceByAccount.map((item) => ({ label: item.label, value: item.pnl, trades: item.trades, winRate: item.winRate }))} color="#2dd4bf" />
         </ChartCard>
+        <ChartCard title="Performance by setup" description="Setup P/L ranked by the actual playbooks you traded.">
+          <PerformanceBarChart data={analytics.setupStats.map((item) => ({ label: item.label, value: item.pnl, trades: item.trades, winRate: item.winRate }))} color="#38bdf8" />
+        </ChartCard>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <PerformanceStatsTable title="Performance by Timeframe" rows={analytics.performanceByTimeframe} />
+        <PerformanceStatsTable title="Performance by Setup" rows={analytics.setupStats} />
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <ChartCard title="Performance by timeframe" description="Execution timeframe P/L, trade count, and win-rate context.">
+          <PerformanceBarChart data={analytics.performanceByTimeframe.map((item) => ({ label: item.label, value: item.pnl, trades: item.trades, winRate: item.winRate }))} color="#a78bfa" />
+        </ChartCard>
         <ChartCard title="Daily performance" description="Day-by-day P/L reveals whether results are smooth or overly concentrated.">
           <PerformanceBarChart data={analytics.dailyPerformance.map((item) => ({ label: item.label, value: item.pnl, trades: item.trades }))} color="#60a5fa" />
         </ChartCard>
@@ -101,5 +116,43 @@ export default async function AnalyticsPage({
         </div>
       </section>
     </div>
+  );
+}
+
+function PerformanceStatsTable({ title, rows }: { title: string; rows: EdgePerformancePoint[] }) {
+  return (
+    <section className="panel p-6">
+      <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+      <div className="mt-5 overflow-hidden rounded-3xl border border-white/10">
+        <table className="min-w-full divide-y divide-white/10 text-sm">
+          <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.22em] text-slate-400">
+            <tr>
+              <th className="px-4 py-4">Name</th>
+              <th className="px-4 py-4">Trades</th>
+              <th className="px-4 py-4">Win rate</th>
+              <th className="px-4 py-4">Avg RR</th>
+              <th className="px-4 py-4">Profit factor</th>
+              <th className="px-4 py-4">Net P/L</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5 bg-slate-950/40">
+            {rows.length ? rows.map((row) => (
+              <tr key={row.label}>
+                <td className="px-4 py-4 font-medium">{row.label}</td>
+                <td className="px-4 py-4">{row.trades}</td>
+                <td className="px-4 py-4">{row.winRate.toFixed(2)}%</td>
+                <td className="px-4 py-4">{row.averageRr.toFixed(2)}R</td>
+                <td className="px-4 py-4">{row.profitFactor.toFixed(2)}</td>
+                <td className={cn("px-4 py-4 font-semibold", row.pnl >= 0 ? "text-emerald-300" : "text-rose-300")}>{formatCurrency(row.pnl)}</td>
+              </tr>
+            )) : (
+              <tr>
+                <td className="px-4 py-6 text-slate-400" colSpan={6}>No trades yet.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

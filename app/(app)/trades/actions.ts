@@ -35,6 +35,7 @@ function buildTradePayload(formData: FormData) {
     setup: toStringValue(formData.get("setup")),
     direction,
     option_type: market === "Options" && (optionType === "Call" || optionType === "Put") ? optionType : null,
+    execution_timeframe: toStringValue(formData.get("execution_timeframe")),
     entry_price: entryPrice,
     exit_price: exitPrice,
     stop_loss: toNumber(formData.get("stop_loss")),

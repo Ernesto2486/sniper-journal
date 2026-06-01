@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteTradeAction, updateTradeAction } from "@/app/(app)/trades/actions";
 import { TradeForm } from "@/components/trade-form";
-import { getAuthState, getDefaultTradingAccount, getTradeById, getTradingAccounts } from "@/lib/data";
+import { getAuthState, getDefaultTradingAccount, getSetups, getTradeById, getTradingAccounts } from "@/lib/data";
 
 export default async function EditTradePage({
   params,
@@ -11,7 +11,7 @@ export default async function EditTradePage({
   params: Promise<{ tradeId: string }>;
   searchParams: Promise<{ error?: string; message?: string }>;
 }) {
-  const [{ tradeId }, messages, auth, accounts, defaultAccount] = await Promise.all([params, searchParams, getAuthState(), getTradingAccounts(), getDefaultTradingAccount()]);
+  const [{ tradeId }, messages, auth, accounts, defaultAccount, setups] = await Promise.all([params, searchParams, getAuthState(), getTradingAccounts(), getDefaultTradingAccount(), getSetups()]);
   const trade = await getTradeById(tradeId);
 
   if (!trade) {
@@ -51,7 +51,7 @@ export default async function EditTradePage({
         </div>
       ) : null}
 
-      <TradeForm trade={trade} action={saveAction} isDemo={auth.isDemo} defaultAccountId={defaultAccount?.id} accounts={accounts} />
+      <TradeForm trade={trade} action={saveAction} isDemo={auth.isDemo} defaultAccountId={defaultAccount?.id} accounts={accounts} setups={setups} />
     </div>
   );
 }

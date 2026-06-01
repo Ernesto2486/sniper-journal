@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createTradeAction } from "@/app/(app)/trades/actions";
 import { TradeForm } from "@/components/trade-form";
-import { getAuthState, getDefaultTradingAccount, getTradingAccounts } from "@/lib/data";
+import { getAuthState, getDefaultTradingAccount, getSetups, getTradingAccounts } from "@/lib/data";
 
 export default async function NewTradePage({
   searchParams
@@ -9,10 +9,11 @@ export default async function NewTradePage({
   searchParams: Promise<{ error?: string; date?: string; account?: string }>;
 }) {
   const params = await searchParams;
-  const [auth, accounts, defaultAccount] = await Promise.all([
+  const [auth, accounts, defaultAccount, setups] = await Promise.all([
     getAuthState(),
     getTradingAccounts(),
-    getDefaultTradingAccount()
+    getDefaultTradingAccount(),
+    getSetups()
   ]);
 
   return (
@@ -34,6 +35,7 @@ export default async function NewTradePage({
         initialAccountId={params.account}
         defaultAccountId={defaultAccount?.id}
         accounts={accounts}
+        setups={setups}
       />
     </div>
   );

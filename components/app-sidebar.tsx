@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, BookOpenText, CalendarDays, LayoutDashboard, LogOut, PlusCircle, Table2, UploadCloud, WalletCards } from "lucide-react";
+import { BarChart3, BookMarked, BookOpenText, CalendarDays, LayoutDashboard, LogOut, PlusCircle, Table2, UploadCloud, WalletCards } from "lucide-react";
 import { signOutAction } from "@/app/(app)/trades/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -8,6 +8,7 @@ const navItems = [
   { href: "/accounts", label: "Accounts", icon: WalletCards },
   { href: "/trades", label: "Trade History", icon: Table2 },
   { href: "/trades/new", label: "New Trade", icon: PlusCircle },
+  { href: "/setups", label: "Setups", icon: BookMarked },
   { href: "/import", label: "Import Trades", icon: UploadCloud },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },

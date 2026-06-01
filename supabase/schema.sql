@@ -24,6 +24,7 @@ create table if not exists public.trades (
   setup text not null,
   direction text not null check (direction in ('Long', 'Short')),
   option_type text check (option_type in ('Call', 'Put')),
+  execution_timeframe text not null default '',
   entry_price numeric(14, 4) not null,
   exit_price numeric(14, 4) not null,
   stop_loss numeric(14, 4) not null,
@@ -51,6 +52,7 @@ create table if not exists public.trades (
 
 alter table public.trades add column if not exists trading_account_id uuid;
 alter table public.trades add column if not exists option_type text;
+alter table public.trades add column if not exists execution_timeframe text not null default '';
 
 do $$
 begin
@@ -85,6 +87,27 @@ create index if not exists trades_user_date_idx on public.trades (user_id, date 
 create index if not exists trades_user_market_idx on public.trades (user_id, market);
 create index if not exists trades_user_setup_idx on public.trades (user_id, setup);
 create index if not exists trades_user_account_idx on public.trades (user_id, trading_account_id);
+create index if not exists trades_user_timeframe_idx on public.trades (user_id, execution_timeframe);
+
+create table if not exists public.setups (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  setup_name text not null,
+  category text not null default '',
+  preferred_timeframe text not null default '',
+  description text not null default '',
+  entry_rules text not null default '',
+  risk_rules text not null default '',
+  confirmation_rules text not null default '',
+  avoid_conditions text not null default '',
+  screenshot_url text,
+  notes text not null default '',
+  is_favorite boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists setups_user_favorite_idx on public.setups (user_id, is_favorite desc, setup_name);
 
 create table if not exists public.daily_journal (
   id uuid primary key default gen_random_uuid(),
@@ -204,6 +227,7 @@ create index if not exists weekly_plans_user_week_idx on public.weekly_plans (us
 
 alter table public.trading_accounts enable row level security;
 alter table public.trades enable row level security;
+alter table public.setups enable row level security;
 alter table public.daily_journal enable row level security;
 alter table public.weekly_reviews enable row level security;
 alter table public.weekly_plans enable row level security;
@@ -255,6 +279,31 @@ create policy "trades_update_own"
 drop policy if exists "trades_delete_own" on public.trades;
 create policy "trades_delete_own"
   on public.trades
+  for delete
+  using (auth.uid() = user_id);
+
+drop policy if exists "setups_select_own" on public.setups;
+create policy "setups_select_own"
+  on public.setups
+  for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "setups_insert_own" on public.setups;
+create policy "setups_insert_own"
+  on public.setups
+  for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "setups_update_own" on public.setups;
+create policy "setups_update_own"
+  on public.setups
+  for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "setups_delete_own" on public.setups;
+create policy "setups_delete_own"
+  on public.setups
   for delete
   using (auth.uid() = user_id);
 
