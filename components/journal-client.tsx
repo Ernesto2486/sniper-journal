@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths, subWeeks } from "date-fns";
-import { AlertTriangle, ChevronDown, ImagePlus, Link2, Save, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, Save } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { loadJournalAction, loadWeeklyPlanAction, loadWeeklyReviewAction, saveJournalAction, saveWeeklyPlanAction, saveWeeklyReviewAction } from "@/app/(app)/journal/actions";
 import { TradeTable } from "@/components/trade-table";
 import { browserDateKey } from "@/lib/timezone";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
-import type { DailyJournalAttachment, DailyJournalRecord, TradeRecord, TradingAccount, WeeklyPlanBias, WeeklyPlanRecord, WeeklyPlanWatchlistRow, WeeklyReviewRecord } from "@/lib/types";
+import type { DailyJournalRecord, DailyJournalWatchlistRow, TradeRecord, TradingAccount, WeeklyPlanBias, WeeklyPlanRecord, WeeklyPlanWatchlistRow, WeeklyReviewRecord } from "@/lib/types";
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const moods = [
@@ -65,6 +65,23 @@ function emptyWeeklyPlan(weekStartDate: string, accountId: string | null): Weekl
     watchlist: []
   };
 }
+
+function emptyDailyWatchlistRow(): DailyJournalWatchlistRow {
+  return {
+    id: crypto.randomUUID(),
+    symbol: "",
+    bias: "Neutral",
+    keyLevels: "",
+    mainSetup: "",
+    riskPlan: "",
+    triggerEntryPlan: "",
+    chartLink: "",
+    invalidationLevel: "",
+    notes: "",
+    additionalNotes: ""
+  };
+}
+
 function emptyWeeklyReview(weekStartDate: string, accountId: string | null): WeeklyReviewRecord {
   return {
     id: "",
@@ -117,10 +134,11 @@ function buildWeeklyStats(trades: TradeRecord[], weekStartDate: string) {
     bestSetup: setupsByPnl[0]?.[0] ?? "No setup"
   };
 }
-function emptyJournal(journalDate: string): DailyJournalRecord {
+function emptyJournal(journalDate: string, accountId: string | null): DailyJournalRecord {
   return {
     id: "",
     userId: "",
+    accountId,
     journalDate,
     mood: "Focused",
     sleepHours: "",
@@ -130,6 +148,7 @@ function emptyJournal(journalDate: string): DailyJournalRecord {
     checklistScore: 0,
     tradeStatus: "NO TRADE",
     attachments: [],
+    dailyWatchlist: [],
     todaysFocus: [],
     playbooks: []
   };
@@ -155,8 +174,8 @@ export function JournalClient({
   const localWeekStart = weekKey(localToday);
   const [selectedDate, setSelectedDate] = useState(initialJournal?.journalDate ?? localToday);
   const [visibleMonth, setVisibleMonth] = useState(startOfMonth(parseISO(selectedDate)));
-  const [journal, setJournal] = useState<DailyJournalRecord>(initialJournal ?? emptyJournal(selectedDate));
-  const [tradingViewLink, setTradingViewLink] = useState("");
+  const dailyAccountId = selectedAccountId === "all" ? null : selectedAccountId;
+  const [journal, setJournal] = useState<DailyJournalRecord>(initialJournal ?? emptyJournal(selectedDate, dailyAccountId));
   const [focusInput, setFocusInput] = useState("");
   const [saveState, setSaveState] = useState(isDemo ? "Demo mode" : "Ready");
   const [tradeWarning, setTradeWarning] = useState("");
@@ -237,12 +256,12 @@ export function JournalClient({
   }, [isDemo, journalMode, weeklyReview]);
   useEffect(() => {
     startTransition(async () => {
-      const loaded = await loadJournalAction(selectedDate);
-      setJournal(loaded ?? emptyJournal(selectedDate));
+      const loaded = await loadJournalAction(selectedDate, dailyAccountId);
+      setJournal(loaded ?? emptyJournal(selectedDate, dailyAccountId));
       setSaveState(isDemo ? "Demo mode" : loaded ? "Loaded" : "New entry");
       setTradeWarning("");
     });
-  }, [isDemo, selectedDate]);
+  }, [dailyAccountId, isDemo, selectedDate]);
 
   useEffect(() => {
     setJournal((current) => ({ ...current, checklistScore, tradeStatus }));
@@ -256,13 +275,13 @@ export function JournalClient({
     const handle = window.setTimeout(() => {
       setSaveState("Saving...");
       startTransition(async () => {
-        const result = await saveJournalAction({ ...journal, checklistScore, tradeStatus });
+        const result = await saveJournalAction({ ...journal, accountId: dailyAccountId, checklistScore, tradeStatus });
         setSaveState(result.ok ? "Saved" : result.message);
       });
     }, 700);
 
     return () => window.clearTimeout(handle);
-  }, [checklistScore, isDemo, journal, tradeStatus]);
+  }, [checklistScore, dailyAccountId, isDemo, journal, tradeStatus]);
 
   function updateJournal(patch: Partial<DailyJournalRecord>) {
     setJournal((current) => ({ ...current, ...patch }));
@@ -300,30 +319,18 @@ export function JournalClient({
     updateWeeklyPlan({ watchlist: weeklyPlan.watchlist.filter((row) => row.id !== rowId) });
   }
 
-  function addTradingViewLink() {
-    const url = tradingViewLink.trim();
-    if (!url) return;
+  function updateDailyWatchlistRow(rowId: string, patch: Partial<DailyJournalWatchlistRow>) {
     updateJournal({
-      attachments: [...journal.attachments, { id: crypto.randomUUID(), type: "tradingview", label: "TradingView idea", url }]
+      dailyWatchlist: journal.dailyWatchlist.map((row) => row.id === rowId ? { ...row, ...patch } : row)
     });
-    setTradingViewLink("");
   }
 
-  function addImageFiles(files: FileList | null) {
-    if (!files?.length) return;
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const attachment: DailyJournalAttachment = {
-          id: crypto.randomUUID(),
-          type: "image",
-          label: file.name,
-          url: String(reader.result)
-        };
-        setJournal((current) => ({ ...current, attachments: [...current.attachments, attachment] }));
-      };
-      reader.readAsDataURL(file);
-    });
+  function addDailyWatchlistRow() {
+    updateJournal({ dailyWatchlist: [...journal.dailyWatchlist, emptyDailyWatchlistRow()] });
+  }
+
+  function removeDailyWatchlistRow(rowId: string) {
+    updateJournal({ dailyWatchlist: journal.dailyWatchlist.filter((row) => row.id !== rowId) });
   }
 
   function addFocusTag() {
@@ -448,6 +455,13 @@ export function JournalClient({
         </aside>
 
         <section className="space-y-6">
+          <DailyWatchlistSection
+            watchlist={journal.dailyWatchlist}
+            onAddRow={addDailyWatchlistRow}
+            onUpdateRow={updateDailyWatchlistRow}
+            onRemoveRow={removeDailyWatchlistRow}
+          />
+
           <div className="panel p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -542,33 +556,6 @@ export function JournalClient({
           </section>
 
           <section className="panel p-6">
-            <h3 className="text-xl font-semibold">Attachments</h3>
-            <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_auto_auto]">
-              <input className="field" value={tradingViewLink} onChange={(event) => setTradingViewLink(event.target.value)} placeholder="TradingView link" />
-              <button className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold" onClick={addTradingViewLink}>
-                <Link2 className="h-4 w-4 text-emerald-300" />
-                Add link
-              </button>
-              <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold">
-                <ImagePlus className="h-4 w-4 text-emerald-300" />
-                Upload image
-                <input className="sr-only" type="file" accept="image/*" multiple onChange={(event) => addImageFiles(event.target.files)} />
-              </label>
-            </div>
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
-              {journal.attachments.map((attachment) => (
-                <div key={attachment.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <a className="truncate text-sm font-semibold text-slate-100" href={attachment.url} target="_blank" rel="noreferrer">{attachment.label}</a>
-                    <button onClick={() => updateJournal({ attachments: journal.attachments.filter((item) => item.id !== attachment.id) })}><X className="h-4 w-4 text-slate-400" /></button>
-                  </div>
-                  {attachment.type === "image" ? <img src={attachment.url} alt={attachment.label} className="mt-3 max-h-52 w-full rounded-2xl object-cover" /> : null}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="panel p-6">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-xl font-semibold">Trades for selected day</h3>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300">{selectedDayTrades.length} trades</span>
@@ -619,6 +606,127 @@ export function JournalClient({
     </div>
   );
 }
+
+function DailyWatchlistSection({
+  watchlist,
+  onAddRow,
+  onUpdateRow,
+  onRemoveRow
+}: {
+  watchlist: DailyJournalWatchlistRow[];
+  onAddRow: () => void;
+  onUpdateRow: (rowId: string, patch: Partial<DailyJournalWatchlistRow>) => void;
+  onRemoveRow: (rowId: string) => void;
+}) {
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  function toggleExpanded(rowId: string) {
+    setExpandedRows((current) => {
+      const next = new Set(current);
+      if (next.has(rowId)) {
+        next.delete(rowId);
+      } else {
+        next.add(rowId);
+      }
+      return next;
+    });
+  }
+
+  return (
+    <section className="panel p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-xl font-semibold">Daily Watchlist</h3>
+          <p className="mt-2 text-sm text-slate-400">Assets, bias, levels, and trigger plans for the selected journal day.</p>
+        </div>
+        <button type="button" className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950" onClick={onAddRow}>+ Add Asset</button>
+      </div>
+
+      {watchlist.length ? (
+        <div className="mt-5 space-y-3">
+          {watchlist.map((row) => {
+            const isExpanded = expandedRows.has(row.id);
+            return (
+              <div key={row.id} className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-emerald-400/25">
+                <div className="grid gap-3 lg:grid-cols-[1fr_160px_1.4fr_1fr_auto] lg:items-start">
+                  <div>
+                    <label className="label">Asset / Symbol</label>
+                    <input className="field" value={row.symbol} onChange={(event) => onUpdateRow(row.id, { symbol: event.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label">Bias</label>
+                    <select className="field" value={row.bias} onChange={(event) => onUpdateRow(row.id, { bias: event.target.value as WeeklyPlanBias })}>
+                      {planBiasOptions.map((bias) => <option key={bias} value={bias}>{bias}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Key Levels</label>
+                    <textarea className="field min-h-24" value={row.keyLevels} onChange={(event) => onUpdateRow(row.id, { keyLevels: event.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label">Main Setup</label>
+                    <input className="field" value={row.mainSetup} onChange={(event) => onUpdateRow(row.id, { mainSetup: event.target.value })} />
+                  </div>
+                  <div className="flex flex-wrap gap-2 lg:pt-8">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-emerald-400/30 hover:bg-emerald-400/10"
+                      onClick={() => toggleExpanded(row.id)}
+                      aria-expanded={isExpanded}
+                    >
+                      <ChevronDown className={cn("h-4 w-4 text-emerald-300 transition-transform duration-300", isExpanded && "rotate-180")} />
+                      Details
+                    </button>
+                    <button type="button" className="rounded-full border border-rose-300/30 bg-rose-400/10 px-4 py-2 text-sm font-semibold text-rose-100" onClick={() => onRemoveRow(row.id)}>Remove</button>
+                  </div>
+                </div>
+
+                <div className={cn("grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out", isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
+                  <div className="min-h-0">
+                    <div className="mt-4 rounded-3xl border border-white/10 bg-slate-950/30 p-4">
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <div>
+                          <label className="label">Risk Plan</label>
+                          <textarea className="field min-h-28" value={row.riskPlan} onChange={(event) => onUpdateRow(row.id, { riskPlan: event.target.value })} />
+                        </div>
+                        <div>
+                          <label className="label">Trigger / Entry Plan</label>
+                          <textarea className="field min-h-28" value={row.triggerEntryPlan} onChange={(event) => onUpdateRow(row.id, { triggerEntryPlan: event.target.value })} />
+                        </div>
+                        <div>
+                          <label className="label">TradingView Link</label>
+                          <input className="field" value={row.chartLink} onChange={(event) => onUpdateRow(row.id, { chartLink: event.target.value })} />
+                          {row.chartLink ? <a className="mt-2 block text-xs font-semibold text-emerald-300" href={row.chartLink} target="_blank" rel="noreferrer">Open TradingView</a> : null}
+                        </div>
+                        <div>
+                          <label className="label">Invalidation Level</label>
+                          <input className="field" value={row.invalidationLevel} onChange={(event) => onUpdateRow(row.id, { invalidationLevel: event.target.value })} />
+                        </div>
+                        <div>
+                          <label className="label">Notes</label>
+                          <textarea className="field min-h-28" value={row.notes} onChange={(event) => onUpdateRow(row.id, { notes: event.target.value })} />
+                        </div>
+                        <div>
+                          <label className="label">Additional Notes</label>
+                          <textarea className="field min-h-28" value={row.additionalNotes} onChange={(event) => onUpdateRow(row.id, { additionalNotes: event.target.value })} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="mt-5 rounded-3xl border border-dashed border-white/10 p-8 text-center text-sm text-slate-400">
+          No daily watchlist assets yet. Add an asset to frame today&apos;s best opportunities.
+        </div>
+      )}
+    </section>
+  );
+}
+
 type WeeklyStats = ReturnType<typeof buildWeeklyStats>;
 
 type WeeklyReviewPanelProps = {

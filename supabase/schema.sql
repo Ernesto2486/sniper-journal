@@ -74,6 +74,7 @@ create index if not exists trades_user_account_idx on public.trades (user_id, tr
 create table if not exists public.daily_journal (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
+  account_id uuid references public.trading_accounts(id) on delete set null,
   journal_date date not null,
   mood text not null default '',
   sleep_hours numeric(4, 1),
@@ -83,14 +84,40 @@ create table if not exists public.daily_journal (
   checklist_score integer not null default 0 check (checklist_score between 0 and 7),
   trade_status text not null default 'NO TRADE' check (trade_status in ('NO TRADE', 'A+ TRADE READY')),
   attachments jsonb not null default '[]'::jsonb,
+  daily_watchlist jsonb not null default '[]'::jsonb,
   todays_focus jsonb not null default '[]'::jsonb,
   playbooks jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (user_id, journal_date)
+  updated_at timestamptz not null default now()
 );
 
+alter table public.daily_journal add column if not exists account_id uuid references public.trading_accounts(id) on delete set null;
+alter table public.daily_journal add column if not exists daily_watchlist jsonb not null default '[]'::jsonb;
+
+do $$
+begin
+  if exists (
+    select 1
+    from pg_constraint
+    where conname = 'daily_journal_user_id_journal_date_key'
+  ) then
+    alter table public.daily_journal
+      drop constraint daily_journal_user_id_journal_date_key;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'daily_journal_user_account_date_key'
+  ) then
+    alter table public.daily_journal
+      add constraint daily_journal_user_account_date_key
+      unique nulls not distinct (user_id, account_id, journal_date);
+  end if;
+end $$;
+
 create index if not exists daily_journal_user_date_idx on public.daily_journal (user_id, journal_date desc);
+create index if not exists daily_journal_user_account_date_idx on public.daily_journal (user_id, account_id, journal_date desc);
 create table if not exists public.weekly_reviews (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,

@@ -4,16 +4,34 @@ import { revalidatePath } from "next/cache";
 import { getAuthState } from "@/lib/data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import type { DailyJournalRecord, WeeklyPlanRecord, WeeklyPlanWatchlistRow, WeeklyReviewRecord } from "@/lib/types";
+import type { DailyJournalRecord, DailyJournalWatchlistRow, WeeklyPlanRecord, WeeklyPlanWatchlistRow, WeeklyReviewRecord } from "@/lib/types";
 
 type SaveJournalInput = Omit<DailyJournalRecord, "id" | "userId">;
 type SaveWeeklyReviewInput = Omit<WeeklyReviewRecord, "id" | "userId">;
 type SaveWeeklyPlanInput = Omit<WeeklyPlanRecord, "id" | "userId">;
 
+function normalizeDailyWatchlistRow(row: unknown): DailyJournalWatchlistRow {
+  const item = typeof row === "object" && row !== null ? row as Partial<DailyJournalWatchlistRow> : {};
+  return {
+    id: String(item.id || crypto.randomUUID()),
+    symbol: String(item.symbol ?? ""),
+    bias: item.bias === "Bullish" || item.bias === "Bearish" || item.bias === "Range" || item.bias === "Neutral" ? item.bias : "Neutral",
+    keyLevels: String(item.keyLevels ?? ""),
+    mainSetup: String(item.mainSetup ?? ""),
+    riskPlan: String(item.riskPlan ?? ""),
+    triggerEntryPlan: String(item.triggerEntryPlan ?? ""),
+    chartLink: String(item.chartLink ?? ""),
+    invalidationLevel: String(item.invalidationLevel ?? ""),
+    notes: String(item.notes ?? ""),
+    additionalNotes: String(item.additionalNotes ?? "")
+  };
+}
+
 function mapDailyJournal(row: Record<string, unknown>): DailyJournalRecord {
   return {
     id: String(row.id),
     userId: String(row.user_id),
+    accountId: row.account_id ? String(row.account_id) : null,
     journalDate: String(row.journal_date),
     mood: String(row.mood ?? ""),
     sleepHours: row.sleep_hours === null || row.sleep_hours === undefined ? "" : String(row.sleep_hours),
@@ -23,12 +41,13 @@ function mapDailyJournal(row: Record<string, unknown>): DailyJournalRecord {
     checklistScore: Number(row.checklist_score ?? 0),
     tradeStatus: String(row.trade_status ?? "NO TRADE") as DailyJournalRecord["tradeStatus"],
     attachments: Array.isArray(row.attachments) ? row.attachments as DailyJournalRecord["attachments"] : [],
+    dailyWatchlist: Array.isArray(row.daily_watchlist) ? row.daily_watchlist.map(normalizeDailyWatchlistRow) : [],
     todaysFocus: Array.isArray(row.todays_focus) ? row.todays_focus.map(String) : [],
     playbooks: Array.isArray(row.playbooks) ? row.playbooks.map(String) : []
   };
 }
 
-export async function loadJournalAction(journalDate: string): Promise<DailyJournalRecord | null> {
+export async function loadJournalAction(journalDate: string, accountId: string | null = null): Promise<DailyJournalRecord | null> {
   if (!hasSupabaseEnv()) {
     return null;
   }
@@ -40,12 +59,14 @@ export async function loadJournalAction(journalDate: string): Promise<DailyJourn
     return null;
   }
 
-  const { data } = await supabase
+  let query = supabase
     .from("daily_journal")
     .select("*")
     .eq("user_id", auth.user.id)
-    .eq("journal_date", journalDate)
-    .maybeSingle();
+    .eq("journal_date", journalDate);
+
+  query = accountId ? query.eq("account_id", accountId) : query.is("account_id", null);
+  const { data } = await query.maybeSingle();
 
   return data ? mapDailyJournal(data as Record<string, unknown>) : null;
 }
@@ -64,6 +85,7 @@ export async function saveJournalAction(input: SaveJournalInput) {
 
   const payload = {
     user_id: auth.user.id,
+    account_id: input.accountId,
     journal_date: input.journalDate,
     mood: input.mood,
     sleep_hours: input.sleepHours === "" ? null : Number(input.sleepHours),
@@ -73,13 +95,23 @@ export async function saveJournalAction(input: SaveJournalInput) {
     checklist_score: input.checklistScore,
     trade_status: input.tradeStatus,
     attachments: input.attachments,
+    daily_watchlist: input.dailyWatchlist,
     todays_focus: input.todaysFocus,
     playbooks: input.playbooks
   };
 
-  const { error } = await supabase
+  let existingQuery = supabase
     .from("daily_journal")
-    .upsert(payload, { onConflict: "user_id,journal_date" });
+    .select("id")
+    .eq("user_id", auth.user.id)
+    .eq("journal_date", input.journalDate);
+
+  existingQuery = input.accountId ? existingQuery.eq("account_id", input.accountId) : existingQuery.is("account_id", null);
+  const { data: existing } = await existingQuery.maybeSingle();
+
+  const { error } = existing?.id
+    ? await supabase.from("daily_journal").update(payload).eq("id", existing.id)
+    : await supabase.from("daily_journal").insert(payload);
 
   if (error) {
     return { ok: false, message: error.message };

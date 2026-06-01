@@ -69,9 +69,24 @@ export type DailyJournalAttachment = {
   url: string;
 };
 
+export type DailyJournalWatchlistRow = {
+  id: string;
+  symbol: string;
+  bias: WeeklyPlanBias;
+  keyLevels: string;
+  mainSetup: string;
+  riskPlan: string;
+  triggerEntryPlan: string;
+  chartLink: string;
+  invalidationLevel: string;
+  notes: string;
+  additionalNotes: string;
+};
+
 export interface DailyJournalRecord {
   id: string;
   userId: string;
+  accountId: string | null;
   journalDate: string;
   mood: string;
   sleepHours: string;
@@ -81,6 +96,7 @@ export interface DailyJournalRecord {
   checklistScore: number;
   tradeStatus: "NO TRADE" | "A+ TRADE READY";
   attachments: DailyJournalAttachment[];
+  dailyWatchlist: DailyJournalWatchlistRow[];
   todaysFocus: string[];
   playbooks: string[];
 }

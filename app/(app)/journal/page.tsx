@@ -11,7 +11,8 @@ export default async function JournalPage({
   const params = await searchParams;
   const { trades, accounts, auth } = await getDashboardData();
   const today = zonedDateKey();
-  const initialJournal = await loadJournalAction(today);
+  const selectedAccountId = params.account ?? "all";
+  const initialJournal = await loadJournalAction(today, selectedAccountId === "all" ? null : selectedAccountId);
   const setups = [...new Set(trades.map((trade) => trade.setup).filter(Boolean))];
 
   return (
@@ -19,7 +20,7 @@ export default async function JournalPage({
       initialJournal={initialJournal}
       trades={trades}
       accounts={accounts}
-      selectedAccountId={params.account ?? "all"}
+      selectedAccountId={selectedAccountId}
       setups={setups}
       isDemo={auth.isDemo}
     />
