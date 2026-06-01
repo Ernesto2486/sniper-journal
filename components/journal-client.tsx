@@ -419,8 +419,9 @@ export function JournalClient({
       </section>
 
       {journalMode === "daily" ? (
-      <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <aside className="panel h-fit p-5">
+      <div className="space-y-6">
+        <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
+          <aside className="panel h-fit p-5">
           <div className="flex items-center justify-between gap-3">
             <button className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm" onClick={() => setVisibleMonth(subMonths(visibleMonth, 1))}>Previous</button>
             <h2 className="text-xl font-semibold">{format(visibleMonth, "MMMM yyyy")}</h2>
@@ -452,9 +453,9 @@ export function JournalClient({
               );
             })}
           </div>
-        </aside>
+          </aside>
 
-        <section className="space-y-6">
+          <section className="space-y-6">
           <div className="panel p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -562,13 +563,15 @@ export function JournalClient({
             )}
           </section>
 
-          <DailyWatchlistSection
-            watchlist={journal.dailyWatchlist}
-            onAddRow={addDailyWatchlistRow}
-            onUpdateRow={updateDailyWatchlistRow}
-            onRemoveRow={removeDailyWatchlistRow}
-          />
-        </section>
+          </section>
+        </div>
+
+        <DailyWatchlistSection
+          watchlist={journal.dailyWatchlist}
+          onAddRow={addDailyWatchlistRow}
+          onUpdateRow={updateDailyWatchlistRow}
+          onRemoveRow={removeDailyWatchlistRow}
+        />
       </div>
       ) : journalMode === "weekly" ? (
         <WeeklyReviewPanel
