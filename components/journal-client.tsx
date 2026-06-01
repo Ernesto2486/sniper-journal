@@ -7,6 +7,7 @@ import { AlertTriangle, ChevronDown, ImagePlus, Link2, Save, X } from "lucide-re
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { loadJournalAction, loadWeeklyPlanAction, loadWeeklyReviewAction, saveJournalAction, saveWeeklyPlanAction, saveWeeklyReviewAction } from "@/app/(app)/journal/actions";
 import { TradeTable } from "@/components/trade-table";
+import { browserDateKey } from "@/lib/timezone";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
 import type { DailyJournalAttachment, DailyJournalRecord, TradeRecord, TradingAccount, WeeklyPlanBias, WeeklyPlanRecord, WeeklyPlanWatchlistRow, WeeklyReviewRecord } from "@/lib/types";
 
@@ -150,7 +151,9 @@ export function JournalClient({
   isDemo: boolean;
 }) {
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState(initialJournal?.journalDate ?? format(new Date(), "yyyy-MM-dd"));
+  const localToday = browserDateKey();
+  const localWeekStart = weekKey(localToday);
+  const [selectedDate, setSelectedDate] = useState(initialJournal?.journalDate ?? localToday);
   const [visibleMonth, setVisibleMonth] = useState(startOfMonth(parseISO(selectedDate)));
   const [journal, setJournal] = useState<DailyJournalRecord>(initialJournal ?? emptyJournal(selectedDate));
   const [tradingViewLink, setTradingViewLink] = useState("");
@@ -158,12 +161,12 @@ export function JournalClient({
   const [saveState, setSaveState] = useState(isDemo ? "Demo mode" : "Ready");
   const [tradeWarning, setTradeWarning] = useState("");
   const [journalMode, setJournalMode] = useState<"daily" | "weekly" | "plan">("daily");
-  const [selectedWeekStart, setSelectedWeekStart] = useState(weekKey(new Date()));
+  const [selectedWeekStart, setSelectedWeekStart] = useState(localWeekStart);
   const [weeklySelectedAccountId, setWeeklySelectedAccountId] = useState(selectedAccountId);
-  const [weeklyReview, setWeeklyReview] = useState<WeeklyReviewRecord>(emptyWeeklyReview(weekKey(new Date()), selectedAccountId === "all" ? null : selectedAccountId));
+  const [weeklyReview, setWeeklyReview] = useState<WeeklyReviewRecord>(emptyWeeklyReview(localWeekStart, selectedAccountId === "all" ? null : selectedAccountId));
   const [weeklySaveState, setWeeklySaveState] = useState(isDemo ? "Demo mode" : "Ready");
   const [planSelectedAccountId, setPlanSelectedAccountId] = useState(selectedAccountId);
-  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlanRecord>(emptyWeeklyPlan(weekKey(new Date()), selectedAccountId === "all" ? null : selectedAccountId));
+  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlanRecord>(emptyWeeklyPlan(localWeekStart, selectedAccountId === "all" ? null : selectedAccountId));
   const [planSaveState, setPlanSaveState] = useState(isDemo ? "Demo mode" : "Ready");
   const [isPending, startTransition] = useTransition();
 

@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { browserDateKey } from "@/lib/timezone";
 import { DIRECTIONS, MARKETS, type TradeRecord, type TradingAccount } from "@/lib/types";
 
 type TradeAction = (formData: FormData) => void | Promise<void>;
 
 function initialFromTrade(trade?: TradeRecord | null, initialDate?: string, initialAccountId?: string, defaultAccountId?: string) {
   return {
-    date: trade?.date ?? initialDate ?? new Date().toISOString().slice(0, 10),
+    date: trade?.date ?? initialDate ?? browserDateKey(),
     time: trade?.time ?? "09:30",
     tradingAccountId: trade?.tradingAccountId ?? initialAccountId ?? defaultAccountId ?? "",
     market: trade?.market ?? "Stocks",

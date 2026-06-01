@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { format, parseISO, startOfMonth, startOfQuarter, startOfWeek, startOfYear, subDays, subMonths } from "date-fns";
+import { format, parseISO, startOfWeek } from "date-fns";
 import { AccountFilter } from "@/components/account-filter";
 import { AdvancedEquityCurveSection, PeriodPerformanceSection } from "@/components/dashboard-advanced-sections";
 import { ChartCard } from "@/components/chart-card";
@@ -10,6 +10,7 @@ import { ShareTodaysPnlButton } from "@/components/share-todays-pnl-button";
 import UpgradeButton from "@/components/upgrade-button";
 import { applyTradeFilters, buildDashboardAnalytics } from "@/lib/analytics";
 import { getDashboardData } from "@/lib/data";
+import { addDaysToDateKey, addMonthsToDateKey, monthStartKey, quarterStartKey, yearStartKey, zonedDateKey, zonedHour, zonedLongDate } from "@/lib/timezone";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
 import type { EquityPoint, PerformancePoint, TradeRecord } from "@/lib/types";
 
@@ -33,8 +34,7 @@ const dateRangeOptions: { value: DateRangeKey; label: string }[] = [
   { value: "custom", label: "Custom" }
 ];
 
-function greetingFor(date: Date) {
-  const hour = date.getHours();
+function greetingFor(hour: number) {
   if (hour < 12) return "Good morning";
   if (hour < 17) return "Good afternoon";
   return "Good evening";
@@ -50,23 +50,18 @@ function normalizeRange(value?: string): DateRangeKey {
   return dateRangeOptions.some((option) => option.value === value) ? (value as DateRangeKey) : "all";
 }
 
-function formatDateInput(date: Date) {
-  return format(date, "yyyy-MM-dd");
-}
 
-function resolveDateRange(range: DateRangeKey, from: string | undefined, to: string | undefined, now: Date) {
-  const today = formatDateInput(now);
-
+function resolveDateRange(range: DateRangeKey, from: string | undefined, to: string | undefined, today: string) {
   if (range === "custom") {
     return { from: from || undefined, to: to || undefined };
   }
 
-  if (range === "30d") return { from: formatDateInput(subDays(now, 29)), to: today };
-  if (range === "90d") return { from: formatDateInput(subDays(now, 89)), to: today };
-  if (range === "mtd") return { from: formatDateInput(startOfMonth(now)), to: today };
-  if (range === "qtd") return { from: formatDateInput(startOfQuarter(now)), to: today };
-  if (range === "ytd") return { from: formatDateInput(startOfYear(now)), to: today };
-  if (range === "12mo") return { from: formatDateInput(subMonths(now, 12)), to: today };
+  if (range === "30d") return { from: addDaysToDateKey(today, -29), to: today };
+  if (range === "90d") return { from: addDaysToDateKey(today, -89), to: today };
+  if (range === "mtd") return { from: monthStartKey(today), to: today };
+  if (range === "qtd") return { from: quarterStartKey(today), to: today };
+  if (range === "ytd") return { from: yearStartKey(today), to: today };
+  if (range === "12mo") return { from: addMonthsToDateKey(today, -12), to: today };
 
   return { from: undefined, to: undefined };
 }
@@ -256,7 +251,8 @@ export default async function DashboardPage({
   const selectedAccount = params.account ?? "all";
   const selectedRange = normalizeRange(params.range);
   const now = new Date();
-  const resolvedRange = resolveDateRange(selectedRange, params.from, params.to, now);
+  const today = zonedDateKey(now);
+  const resolvedRange = resolveDateRange(selectedRange, params.from, params.to, today);
   const { accounts, trades, subscription, auth } = await getDashboardData();
   const filteredTrades = applyTradeFilters(trades, {
     account: selectedAccount,
@@ -266,12 +262,11 @@ export default async function DashboardPage({
   const accountFilteredTrades = applyTradeFilters(trades, { account: selectedAccount });
   const analytics = buildDashboardAnalytics(filteredTrades);
   const { summary } = analytics;
-  const today = formatDateInput(now);
   const todaysPnl = accountFilteredTrades
     .filter((trade) => trade.date === today)
     .reduce((sum, trade) => sum + trade.resultUsd, 0);
   const name = displayName(auth.user?.email);
-  const greeting = `${greetingFor(now)}${name ? `, ${name}` : ""}`;
+  const greeting = `${greetingFor(zonedHour(now))}${name ? `, ${name}` : ""}`;
   const filterParams = {
     account: selectedAccount,
     range: selectedRange,
@@ -312,7 +307,7 @@ export default async function DashboardPage({
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300">
-              {now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+              {zonedLongDate(now)}
             </p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">{greeting}</h1>
             <p className="mt-3 text-slate-400">Stay consistent and trust your process.</p>

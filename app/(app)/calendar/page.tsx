@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { addMonths, format, subMonths } from "date-fns";
 import { AccountFilter } from "@/components/account-filter";
 import { CalendarGrid } from "@/components/calendar-grid";
 import { applyTradeFilters, buildDashboardAnalytics, buildMonthCalendar } from "@/lib/analytics";
 import { getDashboardData } from "@/lib/data";
+import { addMonthsToDateKey, dateKeyToUtcDate, formatDateKey, zonedDateKey } from "@/lib/timezone";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { CalendarDayPoint, TradeRecord } from "@/lib/types";
 
@@ -34,7 +34,7 @@ function buildWeeklySummaries(days: CalendarDay[], trades: TradeRecord[]) {
     const rankedDays = [...daysWithTrades].sort((left, right) => right.point.pnl - left.point.pnl);
 
     summaries.push({
-      label: `${format(new Date(`${weekDays[0].date}T00:00:00`), "MMM d")} - ${format(new Date(`${weekDays.at(-1)?.date}T00:00:00`), "MMM d")}`,
+      label: `${formatDateKey(weekDays[0].date, { month: "short", day: "numeric" })} - ${formatDateKey(weekDays.at(-1)?.date ?? weekDays[0].date, { month: "short", day: "numeric" })}`,
       pnl: weeklyPnl,
       trades: weekTrades.length,
       winRate: weekTrades.length ? (wins / weekTrades.length) * 100 : 0,
@@ -63,11 +63,13 @@ export default async function CalendarPage({
   const { accounts, trades } = await getDashboardData();
   const filteredTrades = applyTradeFilters(trades, { account: selectedAccount });
   const analytics = buildDashboardAnalytics(filteredTrades);
-  const month = params.month ? new Date(`${params.month}-01T00:00:00`) : new Date();
+  const currentMonthKey = params.month ?? zonedDateKey().slice(0, 7);
+  const monthDateKey = `${currentMonthKey}-01`;
+  const month = dateKeyToUtcDate(monthDateKey);
   const days = buildMonthCalendar(month, analytics.calendarPerformance);
   const weeklySummaries = buildWeeklySummaries(days, filteredTrades);
-  const previous = format(subMonths(month, 1), "yyyy-MM");
-  const next = format(addMonths(month, 1), "yyyy-MM");
+  const previous = addMonthsToDateKey(monthDateKey, -1).slice(0, 7);
+  const next = addMonthsToDateKey(monthDateKey, 1).slice(0, 7);
   const accountQuery = selectedAccount !== "all" ? `&account=${selectedAccount}` : "";
 
   return (
@@ -76,11 +78,11 @@ export default async function CalendarPage({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300">Calendar view</p>
-            <h1 className="mt-3 text-4xl font-semibold tracking-tight">{format(month, "MMMM yyyy")}</h1>
+            <h1 className="mt-3 text-4xl font-semibold tracking-tight">{formatDateKey(monthDateKey, { month: "long", year: "numeric" })}</h1>
             <p className="mt-3 text-slate-400">Each day is color-coded by realized P/L for the selected account context.</p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
-            <AccountFilter accounts={accounts} selectedAccount={selectedAccount} hidden={{ month: format(month, "yyyy-MM") }} compact />
+            <AccountFilter accounts={accounts} selectedAccount={selectedAccount} hidden={{ month: currentMonthKey }} compact />
             <Link href={`/calendar?month=${previous}${accountQuery}`} className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white">Previous</Link>
             <Link href={`/calendar?month=${next}${accountQuery}`} className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white">Next</Link>
           </div>
@@ -109,8 +111,8 @@ export default async function CalendarPage({
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <Metric label="Win rate" value={`${week.winRate.toFixed(1)}%`} />
                   <Metric label="Avg P/L" value={formatCurrency(week.averagePnl)} tone={pnlTone(week.averagePnl)} />
-                  <Metric label="Best day" value={week.bestDay ? `${format(new Date(`${week.bestDay.date}T00:00:00`), "EEE")} ${formatCurrency(week.bestDay.point.pnl)}` : "No trades"} tone={week.bestDay ? pnlTone(week.bestDay.point.pnl) : "text-slate-400"} />
-                  <Metric label="Worst day" value={week.worstDay ? `${format(new Date(`${week.worstDay.date}T00:00:00`), "EEE")} ${formatCurrency(week.worstDay.point.pnl)}` : "No trades"} tone={week.worstDay ? pnlTone(week.worstDay.point.pnl) : "text-slate-400"} />
+                  <Metric label="Best day" value={week.bestDay ? `${formatDateKey(week.bestDay.date, { weekday: "short" })} ${formatCurrency(week.bestDay.point.pnl)}` : "No trades"} tone={week.bestDay ? pnlTone(week.bestDay.point.pnl) : "text-slate-400"} />
+                  <Metric label="Worst day" value={week.worstDay ? `${formatDateKey(week.worstDay.date, { weekday: "short" })} ${formatCurrency(week.worstDay.point.pnl)}` : "No trades"} tone={week.worstDay ? pnlTone(week.worstDay.point.pnl) : "text-slate-400"} />
                 </div>
               </div>
             ))}

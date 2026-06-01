@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getAuthState } from "@/lib/data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import { zonedDateKey } from "@/lib/timezone";
 import type { Market, TradingAccount } from "@/lib/types";
 
 const MARKETS = new Set(["Forex", "Futures", "Stocks", "Options", "Crypto"]);
@@ -56,12 +57,23 @@ function normalizeDate(value: string) {
     return trimmed;
   }
 
+  const yearFirst = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+  if (yearFirst) {
+    return `${yearFirst[1]}-${yearFirst[2].padStart(2, "0")}-${yearFirst[3].padStart(2, "0")}`;
+  }
+
+  const monthFirst = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})$/);
+  if (monthFirst) {
+    const year = monthFirst[3].length === 2 ? `20${monthFirst[3]}` : monthFirst[3];
+    return `${year}-${monthFirst[1].padStart(2, "0")}-${monthFirst[2].padStart(2, "0")}`;
+  }
+
   const parsed = new Date(trimmed);
   if (Number.isNaN(parsed.getTime())) {
     return "";
   }
 
-  return parsed.toISOString().slice(0, 10);
+  return zonedDateKey(parsed);
 }
 
 function normalizeTime(value: string) {

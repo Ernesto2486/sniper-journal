@@ -1,6 +1,6 @@
-import { format } from "date-fns";
 import { JournalClient } from "@/components/journal-client";
 import { getDashboardData } from "@/lib/data";
+import { zonedDateKey } from "@/lib/timezone";
 import { loadJournalAction } from "./actions";
 
 export default async function JournalPage({
@@ -10,7 +10,7 @@ export default async function JournalPage({
 }) {
   const params = await searchParams;
   const { trades, accounts, auth } = await getDashboardData();
-  const today = format(new Date(), "yyyy-MM-dd");
+  const today = zonedDateKey();
   const initialJournal = await loadJournalAction(today);
   const setups = [...new Set(trades.map((trade) => trade.setup).filter(Boolean))];
 
