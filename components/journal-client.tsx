@@ -455,13 +455,6 @@ export function JournalClient({
         </aside>
 
         <section className="space-y-6">
-          <DailyWatchlistSection
-            watchlist={journal.dailyWatchlist}
-            onAddRow={addDailyWatchlistRow}
-            onUpdateRow={updateDailyWatchlistRow}
-            onRemoveRow={removeDailyWatchlistRow}
-          />
-
           <div className="panel p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -568,6 +561,13 @@ export function JournalClient({
               </div>
             )}
           </section>
+
+          <DailyWatchlistSection
+            watchlist={journal.dailyWatchlist}
+            onAddRow={addDailyWatchlistRow}
+            onUpdateRow={updateDailyWatchlistRow}
+            onRemoveRow={removeDailyWatchlistRow}
+          />
         </section>
       </div>
       ) : journalMode === "weekly" ? (
